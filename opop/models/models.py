@@ -29,9 +29,11 @@ class User(models.Model):
     def get_email(self):
         return self.email
 
+
 class BlockRelation(models.Model):
     blocked = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by_relations')
     blocked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking_relations')
+
 
 class GameRoom(models.Model):
     id = models.AutoField(primary_key=True)
@@ -61,3 +63,27 @@ class GameRoom(models.Model):
 
     def get_user(self):
         return list(self.users.all())
+
+
+class MatchHistory(models.Model):
+    id = models.AutoField(primary_key=True)
+    opponent_name = models.CharField(max_length=10)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_history')
+    result = models.CharField(max_length=10)
+    game_type = models.CharField(max_length=10)
+    match_date = models.DateField()
+
+    def __str__(self):
+        return f"{self.user.intra_name} vs. {self.opponent_name} - {self.result}"
+
+    def get_opponent_name(self):
+        return self.opponent_name
+
+    def get_date(self):
+        return self.match_date
+
+    def get_game_type(self):
+        return self.game_type
+
+    def get_result(self):
+        return self.result
