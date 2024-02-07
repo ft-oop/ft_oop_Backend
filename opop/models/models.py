@@ -29,6 +29,9 @@ class User(models.Model):
     def get_email(self):
         return self.email
 
+class BlockRelation(models.Model):
+    blocked = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by_relations')
+    blocked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking_relations')
 
 class GameRoom(models.Model):
     id = models.AutoField(primary_key=True)
