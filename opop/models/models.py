@@ -8,6 +8,7 @@ class User(models.Model):
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
     email = models.EmailField()
+    game_room = models.ForeignKey('GameRoom', on_delete=models.SET_NULL, null=True, related_name='users')
 
     def __str__(self):
         return self.intra_name
@@ -30,7 +31,6 @@ class GameRoom(models.Model):
     limits = models.IntegerField(default=0)
     passWord = models.CharField(max_length=12)
     host = models.CharField(max_length=10)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guests')
 
     def __str__(self):
         return self.room_name
@@ -44,5 +44,5 @@ class GameRoom(models.Model):
         return self.passWord
     def get_host(self):
         return self.host
-    def get_guests(self):
-        return list(self.user.all())
+    def get_user(self):
+        return list(self.users.all())
