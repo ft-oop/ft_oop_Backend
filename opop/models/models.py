@@ -1,5 +1,6 @@
 from django.db import models
 
+
 # Create your models here.
 class User(models.Model):
     id = models.AutoField(primary_key=True)
@@ -15,14 +16,19 @@ class User(models.Model):
 
     def get_intra_name(self):
         return self.intra_name
+
     def get_picture(self):
         return self.picture
+
     def get_total_win(self):
         return self.total_win
+
     def get_total_lose(self):
         return self.total_lose
+
     def get_email(self):
         return self.email
+
 
 class GameRoom(models.Model):
     id = models.AutoField(primary_key=True)
@@ -34,15 +40,21 @@ class GameRoom(models.Model):
 
     def __str__(self):
         return self.room_name
+
     def get_room_name(self):
         return self.room_name
+
     def get_room_type(self):
         return self.room_type
+
     def get_limits(self):
         return self.limits
-    def get_passWord(self):
+
+    def get_pass_word(self):
         return self.passWord
+
     def get_host(self):
         return self.host
+
     def get_user(self):
         return list(self.users.all())
