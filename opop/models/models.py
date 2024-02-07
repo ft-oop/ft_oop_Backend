@@ -30,7 +30,7 @@ class GameRoom(models.Model):
     limits = models.IntegerField(default=0)
     passWord = models.CharField(max_length=12)
     host = models.CharField(max_length=10)
-    guests = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guests')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guests')
 
     def __str__(self):
         return self.room_name
@@ -45,4 +45,4 @@ class GameRoom(models.Model):
     def get_host(self):
         return self.host
     def get_guests(self):
-        return list(self.guests.all())
+        return list(self.user.all())
