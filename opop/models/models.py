@@ -87,3 +87,15 @@ class MatchHistory(models.Model):
 
     def get_result(self):
         return self.result
+
+
+class FriendShip(models.Model):
+    user1 = models.ForeignKey(User, related_name='friendships', on_delete=models.CASCADE)
+    user2 = models.ForeignKey(User, related_name='friends', on_delete=models.CASCADE)
+
+
+class Message(models.Model):
+    sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, related_name='received_messages', on_delete=models.CASCADE)
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
