@@ -10,4 +10,5 @@ urlpatterns = [
     path('allUsers/', views.get_all_users),
     path('main/', views.get_user),
     path('users/info/', views.get_user_info),
+    path('mypage/', views.get_my_page)
 ]

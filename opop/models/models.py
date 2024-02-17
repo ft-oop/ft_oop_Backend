@@ -90,8 +90,8 @@ class MatchHistory(models.Model):
 
 
 class FriendShip(models.Model):
-    user1 = models.ForeignKey(User, related_name='friendships', on_delete=models.CASCADE)
-    user2 = models.ForeignKey(User, related_name='friends', on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, related_name='friendships', on_delete=models.CASCADE)
+    friend = models.ForeignKey(User, related_name='friends', on_delete=models.CASCADE)
 
 
 class Message(models.Model):
