@@ -198,7 +198,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         game_room = get_object_or_404(GameRoom, id=room_id)
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
-        if game_room.limits < 2:
+        if game_room.limits  + 1 < game_room.limits:
             raise serializers.ValidationError('OverFlow limits')
         if game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
@@ -233,6 +233,8 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
 
     def enter_tournament_room(self, nick_name, user_name, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
+        if game_room.room_type != 1:
+            raise serializers.ValidationError("Invalid Room Type")
         if game_room.password != password:
             raise serializers.ValidationError("Passwords do not match")
         if game_room.limits + 1 > game_room.limits:
