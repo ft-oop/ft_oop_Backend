@@ -1,4 +1,3 @@
-from turtledemo.sorting_animate import Block
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from rest_framework import serializers
@@ -11,8 +10,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
         model = GameRoom
 
     @transaction.atomic
-    def create_game_room(self, user_name, room_name, game_type, room_limits, password):
-
+    def create_game_room(self, user_name, room_name, game_type, room_limit, password):
         if game_type == 'TOURNAMENT':
             type_integer = 1
         elif game_type == 'DUAL':
@@ -20,17 +18,27 @@ class GameRoomSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError('Invalid game type')
         user = get_object_or_404(User, intra_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limits,
-                        password=password, host=user.get_intra_name())
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password, host=user.get_intra_name())
+        user.game_room = game
+        game.save()
+        user.save()
         return {'game_type': game_type, 'room_id': game.get_room_id()}
 
     @transaction.atomic
     def exit_game_room(self, user_name, room_id):
         game = get_object_or_404(GameRoom, id=room_id)
-        user = get_object_or_404(User, intra_name=user_name, game_room=game)
-        user.game_room = None
-
+        user = User.objects.get(intra_name=user_name, game_room=game)
         users_in_game = User.objects.filter(game_room=game)
+
+        if game.get_host() == user.get_intra_name():
+            for guest in users_in_game:
+                guest.game_room = None
+                guest.save()
+            game.delete()
+            return
+        user.game_room = None
+        user.save()
+
         if users_in_game.count() == 0:
             game.delete()
 
@@ -41,6 +49,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid host name")
         kick_user = get_object_or_404(User, intra_name=user_name)
         kick_user.game_room = None
+        kick_user.save()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -53,6 +62,7 @@ class UserSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def set_nick_name(self, obj, nick_name):
         obj.nick_name = nick_name
+        obj.save()
 
     @transaction.atomic
     def update_user_info(self, user_name, nick_name, picture):
@@ -61,6 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
             user.nick_name = nick_name
         if picture is not None:
             user.picture = picture
+        user.save()
 
 
 class MatchSerializer(serializers.ModelSerializer):
@@ -107,19 +118,18 @@ class FriendSerializer(serializers.ModelSerializer):
         return {'intra_name': user.intra_name, 'picture': user.picture}
 
     @transaction.atomic
-    def add_friends(self, user_name, friends):
-        user = get_object_or_404(User, intra_id=user_name)
-        for friend_name in friends:
-            friend = get_object_or_404(User, intra_id=friend_name)
-            FriendShip(ownner=user, friend=friend)
+    def add_friend(self, user_name, friend_name):
+        user = get_object_or_404(User, intra_name=user_name)
+        friend = get_object_or_404(User, intra_name=friend_name)
+        friend_ship = FriendShip(owner=user, friend=friend)
+        friend_ship.save()
 
     @transaction.atomic
-    def delete_friends(self, user_name, friends):
-        user = get_object_or_404(User, intra_id=user_name)
-        for friend_name in friends:
-            friend = User.objects.filter(intra_id=friend_name)
-            friend_ship = FriendShip.objects.filter(owner=user, friend=friend)
-            friend_ship.delete()
+    def delete_friend(self, user_name, friend_name):
+        user = get_object_or_404(User, intra_name=user_name)
+        friend = get_object_or_404(User, intra_name=friend_name)
+        friend_ship = FriendShip.objects.get(owner=user, friend=friend)
+        friend_ship.delete()
 
 
 class BlockRelationSerializer(serializers.ModelSerializer):
@@ -135,15 +145,16 @@ class BlockRelationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def add_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(User, intra_id=user_name)
-        target = get_object_or_404(User, intra_id=target)
-        BlockRelation(blocked=target, blocked_by=user)
+        user = get_object_or_404(User, intra_name=user_name)
+        target = get_object_or_404(User, intra_name=target)
+        block_relation = BlockRelation(blocked=target, blocked_by=user)
+        block_relation.save()
         # 친구 목록에서도 삭제해야할까??
 
     @transaction.atomic
     def remove_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(User, intra_id=user_name)
-        target = get_object_or_404(User, intra_id=target)
+        user = get_object_or_404(User, intra_name=user_name)
+        target = get_object_or_404(User, intra_name=target)
         block_relation = get_object_or_404(BlockRelation, blocked=target, blocked_by=user)
         block_relation.delete()
 
@@ -181,8 +192,23 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         host_picture = host.get_picture()
         return host_picture
 
+    @transaction.atomic
+    def enter_dual_room(self, user_name, room_id, password):
+        user = get_object_or_404(User, intra_name=user_name)
+        game_room = get_object_or_404(GameRoom, id=room_id)
+        if game_room.room_type != 0:
+            raise serializers.ValidationError('Invalid Room Type')
+        if game_room.limits < 2:
+            raise serializers.ValidationError('OverFlow limits')
+        if game_room.password != password:
+            raise serializers.ValidationError('Passwords do not match')
+        user.game_room = game_room
+        user.save()
+        host = get_object_or_404(User, intra_name=game_room.get_host())
+        return {"hostPicture": host.get_picture()}
 
-class TournamentRoomSerializer(serializers):
+
+class TournamentRoomSerializer(serializers.ModelSerializer):
     host_name = serializers.SerializerMethodField()
     host_picture = serializers.SerializerMethodField()
     guest_list = serializers.SerializerMethodField()
@@ -204,3 +230,20 @@ class TournamentRoomSerializer(serializers):
         users = User.objects.filter(game_room=obj)
         guest_list = [{'nic_name': user.get_nick_name(), 'picture': user.get_picture()} for user in users]
         return guest_list
+
+    def enter_tournament_room(self, nick_name, user_name, password, room_id):
+        game_room = get_object_or_404(GameRoom, id=room_id)
+        if game_room.password != password:
+            raise serializers.ValidationError("Passwords do not match")
+        if game_room.limits + 1 > game_room.limits:
+            raise serializers.ValidationError("Limits exceeded")
+        user = get_object_or_404(User, username=user_name)
+        user.nick_name = nick_name
+        user.game_room = game_room
+
+        host_picture = get_object_or_404(User, intra_name=game_room.get_host()).get_picture()
+        guest_list = self.get_guest_list(game_room)
+        user.save()
+
+        return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
+

@@ -1,16 +1,14 @@
 import json
 
+from django.db import transaction
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
 
-from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, \
-    TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer
+from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer
 from .models import User, BlockRelation, MatchHistory, FriendShip, GameRoom
 from django.http import HttpResponse, JsonResponse
-from rest_framework.parsers import JSONParser
-from json.decoder import JSONDecodeError
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -71,33 +69,23 @@ def get_my_page(request):
 
 @api_view(['GET'])
 def enter_dual_room(request, room_id):
-    try:
-        game_room = get_object_or_404(GameRoom, id=room_id)
-    except RuntimeError:
-        return HttpResponse(status=404, message="game room Not Found")
-    dual_room_dto = DualGameRoomSerializer(game_room).data
-
-    return JsonResponse(dual_room_dto, safe=False, status=200)
+    user_name = request.GET.get('user_name')
+    password = request.GET.get('password')
+    service = DualGameRoomSerializer()
+    data = service.enter_dual_room(user_name, room_id, password)
+    return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['GET'])
 def enter_tournament_room(request, tournament_id):
     nick_name = request.GET.get('nick_name')
     user_name = request.GET.get('user_name')
+    password = request.GET.get('password')
 
-    try:
-        user = get_object_or_404(User, intra_name=user_name)
-    except RuntimeError:
-        return HttpResponse(status=404, message="User Not Found")
-    UserSerializer.set_nick_name(user, nick_name)
+    service = TournamentRoomSerializer()
+    data = service.enter_tournament_room(nick_name, user_name, password, tournament_id)
 
-    try:
-        game_room = get_object_or_404(GameRoom, id=tournament_id)
-    except RuntimeError:
-        return HttpResponse(status=404, message="game room Not found")
-    tournament_room_dto = TournamentRoomSerializer(game_room).data
-
-    return JsonResponse(tournament_room_dto, safe=False, status=200)
+    return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['POST'])
@@ -111,9 +99,9 @@ def create_game(request):
         user_name = data['user_name']
     except KeyError:
         return JsonResponse({'message': 'Bad Request'}, status=400)
-
+    service = GameRoomSerializer()
     try:
-        response = GameRoomSerializer.create_game_room(user_name, room_name, game_type, room_limit, password)
+        response = service.create_game_room(user_name, room_name, game_type, room_limit, password)
     except ValidationError as e:
         return JsonResponse(e.detail, status=400)
     return JsonResponse(response, safe=False, status=200)
@@ -121,8 +109,9 @@ def create_game(request):
 
 @api_view(['POST'])
 def exit_game_room(request, room_id):
-    user_name = request.GET.get('userName')
-    GameRoomSerializer.exit_game_room(user_name, room_id)
+    user_name = request.GET.get('user_name')
+    service = GameRoomSerializer()
+    service.exit_game_room(user_name, room_id)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -134,10 +123,8 @@ def kick_user_in_game_room(request, room_id):
         kick_user = data['kick_user']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    try:
-        GameRoomSerializer.kick_user_in_game_room(room_id, host_name, kick_user)
-    except ValidationError as e:
-        return JsonResponse(e.detail, status=404)
+    service = GameRoomSerializer()
+    service.kick_user_in_game_room(room_id, host_name, kick_user)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -150,7 +137,8 @@ def edit_my_page(request):
         picture = data['picture']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    UserSerializer.update_user_info(user_name, nick_name, picture)
+    servie = UserSerializer()
+    servie.update_user_info(user_name, nick_name, picture)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -159,22 +147,26 @@ def add_friend(request):
     try:
         data = json.loads(request.body)
         user_name = data['user_name']
-        friends = data['friends']
+        friend = data['friend']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    FriendSerializer.add_friends(user_name, friends)
+
+    service = FriendSerializer()
+    service.add_friend(user_name, friend)
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['POST'])
+@api_view(['DELETE'])
 def delete_friend(request):
     try:
         data = json.loads(request.body)
         user_name = data['user_name']
-        friends = data['friends']
+        friend = data['friend']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    FriendSerializer.delete_friends(user_name, friends)
+    service = FriendSerializer()
+    service.delete_friend(user_name, friend)
+    return JsonResponse('OK', safe=False, status=200)
 
 
 @api_view(['POST'])
@@ -185,11 +177,12 @@ def add_friend_in_ban_list(request):
         target = data['target']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    BlockRelationSerializer.add_friend_in_ban_list(user_name, target)
+    service = BlockRelationSerializer()
+    service.add_friend_in_ban_list(user_name, target)
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['POST'])
+@api_view(['DELETE'])
 def remove_friend_in_ban_list(request):
     try:
         data = json.loads(request.body)
@@ -197,5 +190,6 @@ def remove_friend_in_ban_list(request):
         target = data['target']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    BlockRelationSerializer.remove_friend_in_ban_list(user_name, target)
+    service = BlockRelationSerializer()
+    service.remove_friend_in_ban_list(user_name, target)
     return JsonResponse('OK', safe=False, status=200)
