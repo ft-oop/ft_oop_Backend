@@ -39,9 +39,6 @@ class GameRoomSerializer(serializers.ModelSerializer):
         user.game_room = None
         user.save()
 
-        if users_in_game.count() == 0:
-            game.delete()
-
     @transaction.atomic
     def kick_user_in_game_room(self, room_id, host_name, user_name):
         game = get_object_or_404(GameRoom, id=room_id)
@@ -68,7 +65,10 @@ class UserSerializer(serializers.ModelSerializer):
     def update_user_info(self, user_name, nick_name, picture):
         user = get_object_or_404(User, intra_name=user_name)
         if nick_name is not None:
-            user.nick_name = nick_name
+            if not User.objects.filter(nick_name=nick_name).exists():
+                user.nick_name = nick_name
+            else:
+                raise serializers.ValidationError("This nickName is already in use.")
         if picture is not None:
             user.picture = picture
         user.save()
@@ -121,14 +121,17 @@ class FriendSerializer(serializers.ModelSerializer):
     def add_friend(self, user_name, friend_name):
         user = get_object_or_404(User, intra_name=user_name)
         friend = get_object_or_404(User, intra_name=friend_name)
-        friend_ship = FriendShip(owner=user, friend=friend)
-        friend_ship.save()
+        if not FriendShip.objects.filter(owner=user, friend=friend).exists():
+            friend_ship = FriendShip(owner=user, friend=friend)
+            friend_ship.save()
+        else:
+            serializers.ValidationError("Friendship already exists.")
 
     @transaction.atomic
     def delete_friend(self, user_name, friend_name):
         user = get_object_or_404(User, intra_name=user_name)
         friend = get_object_or_404(User, intra_name=friend_name)
-        friend_ship = FriendShip.objects.get(owner=user, friend=friend)
+        friend_ship = get_object_or_404(FriendShip, owner=user, friend=friend)
         friend_ship.delete()
 
 
@@ -233,11 +236,12 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
 
     def enter_tournament_room(self, nick_name, user_name, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
+        users_in_game = User.objects.filter(game_room=game_room)
         if game_room.room_type != 1:
             raise serializers.ValidationError("Invalid Room Type")
         if game_room.password != password:
             raise serializers.ValidationError("Passwords do not match")
-        if game_room.limits + 1 > game_room.limits:
+        if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
         user = get_object_or_404(User, username=user_name)
         user.nick_name = nick_name
