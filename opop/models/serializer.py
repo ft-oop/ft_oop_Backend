@@ -150,9 +150,15 @@ class BlockRelationSerializer(serializers.ModelSerializer):
     def add_friend_in_ban_list(self, user_name, target):
         user = get_object_or_404(User, intra_name=user_name)
         target = get_object_or_404(User, intra_name=target)
-        block_relation = BlockRelation(blocked=target, blocked_by=user)
-        block_relation.save()
-        # 친구 목록에서도 삭제해야할까??
+        if not BlockRelation.objects.filter(blocked=target, blocked_by=user).exists():
+            block_relation = BlockRelation(blocked=target, blocked_by=user)
+            block_relation.save()
+            # 친구 목록에서도 삭제해야할까??
+            # if FriendShip.objects.filter(owner=user, friend=target).exists():
+            #     friend_ship = FriendShip.objects.get(owner=user, friend=target)
+            #     friend_ship.delete()
+        else:
+            serializers.ValidationError("Already blocked user.")
 
     @transaction.atomic
     def remove_friend_in_ban_list(self, user_name, target):
