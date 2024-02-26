@@ -6,7 +6,9 @@ from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
 
-from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer
+from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, \
+    TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, get_user_info_by_api, \
+    get_42oauth_token
 from .models import User, BlockRelation, MatchHistory, FriendShip, GameRoom
 from django.http import HttpResponse, JsonResponse
 
@@ -14,6 +16,14 @@ from django.http import HttpResponse, JsonResponse
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
+@api_view(['POST'])
+def register(request):
+    serializer = UserSerializer(data=request.data)
+    code = request.GET.get('code', '')
+    access_token = get_42oauth_token(code)
+    user_info = get_user_info_by_api(access_token)
 
 
 @api_view(['GET'])
