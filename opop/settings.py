@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -43,6 +44,12 @@ INSTALLED_APPS = [
     
     'opop.models'
 ]
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30)
+
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -133,3 +140,11 @@ CLIENT_SECRET = 's-s4t2ud-f2e593a9bc08db7354dd81a78cc553b15ce02e92c6d26fe57ffe0f
 LOGIN_REDIRECT_URL = 'http://localhost:8000'
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'wooozooo1123@gmail.com'
+EMAIL_HOST_PASSWORD = 'ahel idge xxmd ebll'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
