@@ -127,3 +127,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CLIENT_ID = 'u-s4t2ud-e5cd37c35750100ba3e0124e1161a48dc116d003c905db2d268761a44f090c48'
+CLIENT_SECRET = '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'
+LOGIN_REDIRECT_URL = 'http://localhost:8000'
+FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
+FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
