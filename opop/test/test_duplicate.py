@@ -1,5 +1,5 @@
 from django.test import TestCase
-from opop.models.models import User, FriendShip
+from opop.models.models import User, FriendShip, BlockRelation
 import json
 
 class UserBlockRelationTest(TestCase):
@@ -78,6 +78,36 @@ class UserBlockRelationTest(TestCase):
 
         for i in friend_with_suhpark:
             print(i.owner, "is close with user3")
+
+    def test_duplicate_block(self):
+        data = {
+            'user_name':    'jinoh',
+            'target':       'suhwpark'
+        }
+        print("1st POST: ", self.client.post('/friend/ban-list/add', json.dumps(data), content_type='application/json'))
+        print("2nd POST: ", self.client.post('/friend/ban-list/add', json.dumps(data), content_type='application/json'))
+        data = {
+            'user_name':    'sohyupar',
+            'target':       'suhwpark'
+        }
+        self.client.post('/friend/ban-list/add', json.dumps(data), content_type='application/json')
+        data['target'] = 'jinoh'
+        self.client.post('/friend/ban-list/add', json.dumps(data), content_type='application/json')
+        ''' 차단 관계
+            jinoh       ->suhwpark
+            sohyupar    ->suhwpark
+                        ->jinoh
+        '''
+        # 유저1의 차단목록
+        ban_list = BlockRelation.objects.filter(blocked_by=self.user1).all()
+        # 유저3을 차단한 유저목록
+        users_ban_user3 = BlockRelation.objects.filter(blocked=self.user3).all()
+
+        for i in ban_list:
+            print("user1 banned:", i.blocked)
+
+        for i in users_ban_user3:
+            print(i.blocked_by, "banned user3")
 
 #   파일분리 안하고 일단넣음
     def test_delete_friendship(self):
