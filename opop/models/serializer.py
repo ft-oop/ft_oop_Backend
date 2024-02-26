@@ -1,8 +1,11 @@
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.response import Response
+import requests
 
 from .models import User, GameRoom, MatchHistory, BlockRelation, FriendShip
+from .. import settings
 
 
 class GameRoomSerializer(serializers.ModelSerializer):
@@ -50,6 +53,36 @@ class GameRoomSerializer(serializers.ModelSerializer):
         kick_user = get_object_or_404(User, intra_name=user_name)
         kick_user.game_room = None
         kick_user.save()
+
+
+def get_42oauth_token(code):
+
+    data = {
+        'grant_type': 'authorization_code',
+        'client_id': settings.CLIENT_ID,
+        'client_secret': settings.CLIENT_SECRET,
+        'code': code,
+        'redirect_uri': settings.LOGIN_REDIRECT_URL
+    }
+
+    # 기존 front에서 보낸 요청이 아닌, 서버에서 특정 api로 보내는 request
+    response = requests.post(settings.FT_TOKEN_URL, data=data)
+
+    if response.status_code == 200:
+        ft_access_token = response.json()['access_token']
+        return ft_access_token
+    else:
+        return Response('GET oauth AccessToken Error', status=response.status_code)
+
+
+def get_user_info_by_api(ft_access_token):
+    headers = {'Authorization': 'Bearer ' + ft_access_token}
+    response = requests.get(settings.FT_USER_ATTRIBUTE_URL, headers=headers)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return Response('GET User Info from oauth Error', status=response.status_code)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -198,7 +231,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         game_room = get_object_or_404(GameRoom, id=room_id)
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
-        if game_room.limits  + 1 < game_room.limits:
+        if game_room.limits + 1 < game_room.limits:
             raise serializers.ValidationError('OverFlow limits')
         if game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
@@ -248,4 +281,3 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         user.save()
 
         return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
-
