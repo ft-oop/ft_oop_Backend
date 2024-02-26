@@ -1,14 +1,14 @@
 import json
 
-from django.db import transaction
 from django.shortcuts import render, get_object_or_404
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, \
     TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, get_user_info_by_api, \
-    get_42oauth_token
+    get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code
 from .models import User, BlockRelation, MatchHistory, FriendShip, GameRoom
 from django.http import HttpResponse, JsonResponse
 
@@ -19,11 +19,41 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-def register(request):
+def login(request):
     serializer = UserSerializer(data=request.data)
     code = request.GET.get('code', '')
     access_token = get_42oauth_token(code)
     user_info = get_user_info_by_api(access_token)
+    if not serializer.is_registered(user_info['oauth_id']):
+        serializer.register_user(user_info=user_info)
+        return JsonResponse(user_info['email'], safe=False, status=status.HTTP_201_CREATED)
+    return JsonResponse(generate_token(), safe=False, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def reissue_access_token(request):
+    serializer = TokenRefreshSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+    return JsonResponse(data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def two_factor(request):
+    email = request.GET.get('email')
+    send_two_factor_code(email)
+    return HttpResponse(status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def two_factor(request):
+    serializer = UserSerializer(data=request.data)
+    data = json.loads(request.body)
+    code = data['two_factor_code']
+    email = data['email']
+    verify_two_factor_code(code, email)
+    user = serializer.get_by_email(email)
+    return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -83,6 +113,7 @@ def enter_dual_room(request, room_id):
     password = request.GET.get('password')
     service = DualGameRoomSerializer()
     data = service.enter_dual_room(user_name, room_id, password)
+
     return JsonResponse(data, safe=False, status=200)
 
 
