@@ -3,6 +3,10 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.response import Response
 import requests
+import string
+import random
+from django.core.mail import send_mail
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User, GameRoom, MatchHistory, BlockRelation, FriendShip
 from .. import settings
@@ -85,6 +89,44 @@ def get_user_info_by_api(ft_access_token):
         return Response('GET User Info from oauth Error', status=response.status_code)
 
 
+def generate_token(user):
+    token = TokenObtainPairSerializer.get_token(user)
+    refresh_token = str(token)
+    access_token = str(token.access_token)
+
+    return {
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    }
+
+
+def verify_two_factor_code(code, email):
+    user = User.objects.filter(email=email)
+    if not user.code == code:
+        raise serializers.ValidationError('2fa 코드 불일치')
+    return True
+
+
+@transaction.atomic
+def send_two_factor_code(email):
+    user = User.objects.get(email=email)
+    code = generate_two_factor_code()
+    user.code = code
+    user.save()
+
+    subject = "트센 2FA 코드"
+    message = f'CODE : {code}'
+    from_email = settings.EMAIL_HOST_USER
+
+    send_mail(subject, message, from_email, [email])
+
+
+def generate_two_factor_code(length=6):
+    characters = string.ascii_uppercase + string.digits
+    random_string = ''.join(random.choice(characters) for _ in range(length))
+    return random_string
+
+
 class UserSerializer(serializers.ModelSerializer):
     game_rooms = GameRoomSerializer(read_only=True, many=True)
 
@@ -97,6 +139,16 @@ class UserSerializer(serializers.ModelSerializer):
         obj.nick_name = nick_name
         obj.save()
 
+    def is_registered(self, oauth_id):
+        try:
+            user = User.objects.get(oauth_id=oauth_id)
+            return user.is_registered()
+        except User.DoesNotExist:
+            return False
+
+    def get_by_email(self, email):
+        return get_object_or_404(User, email=email)
+
     @transaction.atomic
     def update_user_info(self, user_name, nick_name, picture):
         user = get_object_or_404(User, intra_name=user_name)
@@ -104,6 +156,22 @@ class UserSerializer(serializers.ModelSerializer):
             user.nick_name = nick_name
         if picture is not None:
             user.picture = picture
+        user.save()
+
+    # email, intra_name, picture 저장
+    @transaction.atomic
+    def register_user(self, user_info):
+        intra_name = user_info.get('login')
+        picture = user_info.get['image']['link']
+        email = user_info.get('email')
+        oauth_id = user_info.get('id')
+
+        user = User.objects.get_or_create(intra_name=intra_name, defaults={
+            'intra_name': intra_name,
+            'email': email,
+            'picture': picture,
+            'oauth_id': oauth_id,
+        })
         user.save()
 
 
