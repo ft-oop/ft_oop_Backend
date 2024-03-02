@@ -2,8 +2,9 @@ import json
 
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, \
@@ -64,9 +65,11 @@ def get_all_users(request):
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
+@permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
     intra_name = request.GET.get('intra_name')
+    print(intra_name)
     try:
         user = get_object_or_404(User, intra_name=intra_name)
     except RuntimeError:

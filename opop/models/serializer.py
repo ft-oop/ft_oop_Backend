@@ -25,7 +25,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError('Invalid game type')
         user = get_object_or_404(User, intra_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password, host=user.get_intra_name())
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
+                        host=user.get_intra_name())
         user.game_room = game
         game.save()
         user.save()
@@ -60,7 +61,6 @@ class GameRoomSerializer(serializers.ModelSerializer):
 
 
 def get_42oauth_token(code):
-
     data = {
         'grant_type': 'authorization_code',
         'client_id': settings.CLIENT_ID,
@@ -104,10 +104,13 @@ def generate_token(user):
     }
 
 
+@transaction.atomic()
 def verify_two_factor_code(code, email):
     user = User.objects.get(email=email)
     if not user.code == code:
         raise serializers.ValidationError('2fa 코드 불일치')
+    user.is_registered = True
+    user.save()
     return True
 
 
