@@ -71,17 +71,21 @@ def get_42oauth_token(code):
 
     # 기존 front에서 보낸 요청이 아닌, 서버에서 특정 api로 보내는 request
     response = requests.post(settings.FT_TOKEN_URL, data=data)
+    print(response.text)
+    print(response.status_code)
 
     if response.status_code == 200:
         ft_access_token = response.json()['access_token']
         return ft_access_token
     else:
-        return Response('GET oauth AccessToken Error', status=response.status_code)
+        raise Exception(response.json().get('error_description'))
 
 
 def get_user_info_by_api(ft_access_token):
     headers = {'Authorization': 'Bearer ' + ft_access_token}
     response = requests.get(settings.FT_USER_ATTRIBUTE_URL, headers=headers)
+    print(response.text)
+    print(response.status_code)
 
     if response.status_code == 200:
         return response.json()
@@ -101,7 +105,7 @@ def generate_token(user):
 
 
 def verify_two_factor_code(code, email):
-    user = User.objects.filter(email=email)
+    user = User.objects.get(email=email)
     if not user.code == code:
         raise serializers.ValidationError('2fa 코드 불일치')
     return True
@@ -111,6 +115,7 @@ def verify_two_factor_code(code, email):
 def send_two_factor_code(email):
     user = User.objects.get(email=email)
     code = generate_two_factor_code()
+    print(code)
     user.code = code
     user.save()
 
@@ -162,17 +167,19 @@ class UserSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def register_user(self, user_info):
         intra_name = user_info.get('login')
-        picture = user_info.get['image']['link']
+        picture = user_info['image']['link']
         email = user_info.get('email')
         oauth_id = user_info.get('id')
 
-        user = User.objects.get_or_create(intra_name=intra_name, defaults={
+        user, created = User.objects.get_or_create(intra_name=intra_name, defaults={
             'intra_name': intra_name,
             'email': email,
             'picture': picture,
             'oauth_id': oauth_id,
+            'is_registered': False
         })
         user.save()
+        return user
 
 
 class MatchSerializer(serializers.ModelSerializer):

@@ -24,10 +24,11 @@ def login(request):
     code = request.GET.get('code', '')
     access_token = get_42oauth_token(code)
     user_info = get_user_info_by_api(access_token)
-    if not serializer.is_registered(user_info['oauth_id']):
-        serializer.register_user(user_info=user_info)
+    user = serializer.register_user(user_info=user_info)
+
+    if not user.is_registered:
         return JsonResponse(user_info['email'], safe=False, status=status.HTTP_201_CREATED)
-    return JsonResponse(generate_token(), safe=False, status=status.HTTP_200_OK)
+    return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -39,8 +40,9 @@ def reissue_access_token(request):
 
 
 @api_view(['GET'])
-def two_factor(request):
+def send_email(request):
     email = request.GET.get('email')
+    print(email)
     send_two_factor_code(email)
     return HttpResponse(status=status.HTTP_200_OK)
 
@@ -48,9 +50,8 @@ def two_factor(request):
 @api_view(['POST'])
 def two_factor(request):
     serializer = UserSerializer(data=request.data)
-    data = json.loads(request.body)
-    code = data['two_factor_code']
-    email = data['email']
+    code = request.data['two_factor_code']
+    email = request.data['email']
     verify_two_factor_code(code, email)
     user = serializer.get_by_email(email)
     return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
