@@ -6,7 +6,11 @@ router = routers.DefaultRouter()
 router.register('User', views.UserViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # 로그인 로직
+    path('oauth/login/', views.login),
+    path('oauth/login/2FA', views.two_factor),
+    path('oauth/login/2FA/email', views.send_email),
+
     path('allUsers/', views.get_all_users),
     path('main/', views.get_user),
     path('users/info/', views.get_user_info),
@@ -21,9 +25,6 @@ urlpatterns = [
     path('friend/delete', views.delete_friend),
     path('friend/ban-list/add', views.add_friend_in_ban_list),
     path('friend/ban-list/delete', views.remove_friend_in_ban_list),
+    path('', include(router.urls)),
 
-    # 로그인 로직 
-    path('oauth/login/', views.login),
-    path('2FA', views.two_factor),
-    path('2FA/email', views.send_email)
 ]

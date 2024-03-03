@@ -4,12 +4,13 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .serializer import UserInfoSerializer, UserSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, \
     TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, get_user_info_by_api, \
-    get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code
+    get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code, get_access_token, \
+    decode_access_code, get_user_by_token
 from .models import User, BlockRelation, MatchHistory, FriendShip, GameRoom
 from django.http import HttpResponse, JsonResponse
 
@@ -19,8 +20,10 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
 
+@permission_classes([AllowAny])
 @api_view(['POST'])
 def login(request):
+    print('요청이 닿을까?')
     serializer = UserSerializer(data=request.data)
     code = request.data['code']
     print('code = ' + code)
@@ -29,7 +32,7 @@ def login(request):
     user = serializer.register_user(user_info=user_info)
 
     if not user.is_registered:
-        return JsonResponse(user_info['email'], safe=False, status=status.HTTP_201_CREATED)
+        return JsonResponse(generate_token(user), safe=False, status=status.HTTP_201_CREATED)
     return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
 
@@ -41,21 +44,24 @@ def reissue_access_token(request):
     return JsonResponse(data, status=status.HTTP_200_OK)
 
 
+@permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def send_email(request):
-    email = request.GET.get('email')
-    print(email)
+    header = request.META.get('HTTP_AUTHORIZATION', '')
+    print('header = ' + header)
+
+    user = get_user_by_token(request)
+    email = user.email
+    print('email' + email)
     send_two_factor_code(email)
     return HttpResponse(status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
 def two_factor(request):
-    serializer = UserSerializer(data=request.data)
-    code = request.data['two_factor_code']
-    email = request.data['email']
-    verify_two_factor_code(code, email)
-    user = serializer.get_by_email(email)
+    user = get_user_by_token(request)
+    code = request.data['code']
+    verify_two_factor_code(code, user.email)
     return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
 
 
@@ -66,7 +72,6 @@ def get_all_users(request):
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
-# @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
     user_name = request.GET.get('userName')

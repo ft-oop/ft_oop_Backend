@@ -6,7 +6,10 @@ import requests
 import string
 import random
 from django.core.mail import send_mail
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.state import token_backend
+from rest_framework_simplejwt.tokens import UntypedToken
 
 from .models import User, GameRoom, MatchHistory, BlockRelation, FriendShip
 from .. import settings
@@ -25,7 +28,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError('Invalid game type')
         user = get_object_or_404(User, user_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password, host=user.get_intra_name())
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
+                        host=user.get_user_name())
         user.game_room = game
         game.save()
         user.save()
@@ -37,7 +41,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
         user = User.objects.get(user_name=user_name, game_room=game)
         users_in_game = User.objects.filter(game_room=game)
 
-        if game.get_host() == user.get_intra_name():
+        if game.get_host() == user.get_user_name():
             for guest in users_in_game:
                 guest.game_room = None
                 guest.save()
@@ -93,6 +97,9 @@ def generate_token(user):
     token = TokenObtainPairSerializer.get_token(user)
     refresh_token = str(token)
     access_token = str(token.access_token)
+
+    print('access' + access_token)
+    print('refresh' + refresh_token)
 
     return {
         'access_token': access_token,
@@ -168,13 +175,13 @@ class UserSerializer(serializers.ModelSerializer):
     # email, intra_name, picture 저장
     @transaction.atomic
     def register_user(self, user_info):
-        intra_name = user_info.get('login')
+        user_name = user_info.get('login')
         picture = user_info['image']['link']
         email = user_info.get('email')
         oauth_id = user_info.get('id')
 
-        user, created = User.objects.get_or_create(intra_name=intra_name, defaults={
-            'intra_name': intra_name,
+        user, created = User.objects.get_or_create(user_name=user_name, defaults={
+            'user_name': user_name,
             'email': email,
             'picture': picture,
             'oauth_id': oauth_id,
@@ -368,3 +375,23 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         user.save()
 
         return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
+
+
+def decode_access_code(access_token):
+    untyped_token = UntypedToken(access_token)
+    return token_backend.decode(untyped_token, verify=False)
+
+
+def get_access_token(request):
+    auth = request.META.get("HTTP_AUTHORIZATION", '').split()
+    if len(auth) == 2:
+        return auth[1]
+    else:
+        raise Exception("Invalid authorization code")
+
+
+def get_user_by_token(request):
+    access_token = get_access_token(request)
+    user_id = decode_access_code(access_token)
+
+    return get_object_or_404(User, pk=user_id)
