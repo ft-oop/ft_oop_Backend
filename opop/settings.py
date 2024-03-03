@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,10 +41,21 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
-    
     'corsheaders',
     'opop.models'
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30)
+
+}
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -130,9 +142,24 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+CLIENT_ID = 'u-s4t2ud-e5cd37c35750100ba3e0124e1161a48dc116d003c905db2d268761a44f090c48'
+CLIENT_SECRET = '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'
+LOGIN_REDIRECT_URL = 'http://localhost:5173/login'
+FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
+FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'wooozooo1123@gmail.com'
+EMAIL_HOST_PASSWORD = 'ahel idge xxmd ebll'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:5173',
     'http://localhost:8000',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+

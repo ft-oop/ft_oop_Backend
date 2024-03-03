@@ -1,8 +1,15 @@
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.response import Response
+import requests
+import string
+import random
+from django.core.mail import send_mail
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User, GameRoom, MatchHistory, BlockRelation, FriendShip
+from .. import settings
 
 
 class GameRoomSerializer(serializers.ModelSerializer):
@@ -49,6 +56,81 @@ class GameRoomSerializer(serializers.ModelSerializer):
         kick_user.save()
 
 
+def get_42oauth_token(code):
+    data = {
+        'grant_type': 'authorization_code',
+        'client_id': settings.CLIENT_ID,
+        'client_secret': settings.CLIENT_SECRET,
+        'code': code,
+        'redirect_uri': settings.LOGIN_REDIRECT_URL
+    }
+
+    # 기존 front에서 보낸 요청이 아닌, 서버에서 특정 api로 보내는 request
+    response = requests.post(settings.FT_TOKEN_URL, data=data)
+    print(response.text)
+    print(response.status_code)
+
+    if response.status_code == 200:
+        ft_access_token = response.json()['access_token']
+        return ft_access_token
+    else:
+        raise Exception(response.json().get('error_description'))
+
+
+def get_user_info_by_api(ft_access_token):
+    headers = {'Authorization': 'Bearer ' + ft_access_token}
+    response = requests.get(settings.FT_USER_ATTRIBUTE_URL, headers=headers)
+    print(response.text)
+    print(response.status_code)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return Response('GET User Info from oauth Error', status=response.status_code)
+
+
+def generate_token(user):
+    token = TokenObtainPairSerializer.get_token(user)
+    refresh_token = str(token)
+    access_token = str(token.access_token)
+
+    return {
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    }
+
+
+@transaction.atomic()
+def verify_two_factor_code(code, email):
+    user = User.objects.get(email=email)
+    if not user.code == code:
+        raise serializers.ValidationError('2fa 코드 불일치')
+    user.is_registered = True
+    user.save()
+    return True
+
+
+@transaction.atomic
+def send_two_factor_code(email):
+    user = User.objects.get(email=email)
+    code = generate_two_factor_code()
+    print(code)
+    user.code = code
+    user.save()
+
+    subject = "트센 2FA 코드"
+    message = f'CODE : {code}'
+    from_email = settings.EMAIL_HOST_USER
+
+    send_mail(subject, message, from_email, [email])
+
+
+def generate_two_factor_code(length=6):
+    characters = string.ascii_uppercase + string.digits
+    random_string = ''.join(random.choice(characters) for _ in range(length))
+    return random_string
+
+
 class UserSerializer(serializers.ModelSerializer):
     game_rooms = GameRoomSerializer(read_only=True, many=True)
 
@@ -61,6 +143,16 @@ class UserSerializer(serializers.ModelSerializer):
         obj.nick_name = nick_name
         obj.save()
 
+    def is_registered(self, oauth_id):
+        try:
+            user = User.objects.get(oauth_id=oauth_id)
+            return user.is_registered()
+        except User.DoesNotExist:
+            return False
+
+    def get_by_email(self, email):
+        return get_object_or_404(User, email=email)
+
     @transaction.atomic
     def update_user_info(self, user_name, nick_name, picture):
         user = get_object_or_404(User, user_name=user_name)
@@ -72,6 +164,24 @@ class UserSerializer(serializers.ModelSerializer):
         if picture is not None:
             user.picture = picture
         user.save()
+
+    # email, intra_name, picture 저장
+    @transaction.atomic
+    def register_user(self, user_info):
+        intra_name = user_info.get('login')
+        picture = user_info['image']['link']
+        email = user_info.get('email')
+        oauth_id = user_info.get('id')
+
+        user, created = User.objects.get_or_create(intra_name=intra_name, defaults={
+            'intra_name': intra_name,
+            'email': email,
+            'picture': picture,
+            'oauth_id': oauth_id,
+            'is_registered': False
+        })
+        user.save()
+        return user
 
 
 class MatchSerializer(serializers.ModelSerializer):
@@ -207,7 +317,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         game_room = get_object_or_404(GameRoom, id=room_id)
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
-        if game_room.limits  + 1 < game_room.limits:
+        if game_room.limits + 1 < game_room.limits:
             raise serializers.ValidationError('OverFlow limits')
         if game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
@@ -258,4 +368,3 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         user.save()
 
         return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
-

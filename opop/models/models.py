@@ -37,12 +37,17 @@ class GameRoom(models.Model):
 
 class User(models.Model):
     id = models.AutoField(primary_key=True)
+
+    is_registered = models.BooleanField(default=False)
+    oauth_id = models.CharField(max_length=255, default='')
     user_name = models.CharField(max_length=10)
-    nick_name = models.CharField(max_length=15)
+    nick_name = models.CharField(max_length=15, default='')
+
     picture = models.CharField(max_length=255)
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
     email = models.EmailField()
+    code = models.CharField(max_length=6, default='')
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
     def __str__(self):

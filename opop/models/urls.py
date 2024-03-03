@@ -20,5 +20,10 @@ urlpatterns = [
     path('friend/add', views.add_friend),
     path('friend/delete', views.delete_friend),
     path('friend/ban-list/add', views.add_friend_in_ban_list),
-    path('friend/ban-list/delete', views.remove_friend_in_ban_list)
+    path('friend/ban-list/delete', views.remove_friend_in_ban_list),
+
+    # 로그인 로직 
+    path('oauth/login/', views.login),
+    path('2FA', views.two_factor),
+    path('2FA/email', views.send_email)
 ]
