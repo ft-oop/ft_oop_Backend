@@ -68,8 +68,8 @@ def get_all_users(request):
 # @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
-    intra_name = request.GET.get('intra_name')
-    print(intra_name)
+    intra_name = request.GET.get('userName')
+
     try:
         user = get_object_or_404(User, intra_name=intra_name)
     except RuntimeError:
@@ -81,7 +81,7 @@ def get_user(request):
 
 @api_view(['GET'])
 def get_user_info(request):
-    intra_name = request.GET.get('intra_name')
+    intra_name = request.GET.get('userName')
     user_name = request.GET.get('user')
 
     try:
@@ -102,8 +102,9 @@ def get_user_info(request):
 
 @api_view(['GET'])
 def get_my_page(request):
+    user_name = request.GET.get('userName')
     try:
-        user = get_object_or_404(User, intra_name=request.GET.get('intra_name'))
+        user = get_object_or_404(User, user_name=user_name)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     my_page_dto = MyPageSerializer(user).data
@@ -113,7 +114,7 @@ def get_my_page(request):
 
 @api_view(['GET'])
 def enter_dual_room(request, room_id):
-    user_name = request.GET.get('user_name')
+    user_name = request.GET.get('userName')
     password = request.GET.get('password')
     service = DualGameRoomSerializer()
     data = service.enter_dual_room(user_name, room_id, password)
@@ -123,8 +124,8 @@ def enter_dual_room(request, room_id):
 
 @api_view(['GET'])
 def enter_tournament_room(request, tournament_id):
-    nick_name = request.GET.get('nick_name')
-    user_name = request.GET.get('user_name')
+    nick_name = request.GET.get('nickName')
+    user_name = request.GET.get('userName')
     password = request.GET.get('password')
 
     service = TournamentRoomSerializer()
@@ -137,11 +138,11 @@ def enter_tournament_room(request, tournament_id):
 def create_game(request):
     try:
         data = json.loads(request.body)
-        room_name = data['room_name']
-        game_type = data['game_type']
-        room_limit = data['room_limit']
+        room_name = data['roomName']
+        game_type = data['gameType']
+        room_limit = data['roomLimit']
         password = data['password']
-        user_name = data['user_name']
+        user_name = data['userName']
     except KeyError:
         return JsonResponse({'message': 'Bad Request'}, status=400)
     service = GameRoomSerializer()
@@ -154,7 +155,7 @@ def create_game(request):
 
 @api_view(['POST'])
 def exit_game_room(request, room_id):
-    user_name = request.GET.get('user_name')
+    user_name = request.GET.get('userName')
     service = GameRoomSerializer()
     service.exit_game_room(user_name, room_id)
     return JsonResponse('OK', safe=False, status=200)
@@ -164,8 +165,8 @@ def exit_game_room(request, room_id):
 def kick_user_in_game_room(request, room_id):
     try:
         data = json.loads(request.body)
-        host_name = data['host_name']
-        kick_user = data['kick_user']
+        host_name = data['hostName']
+        kick_user = data['kickUser']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = GameRoomSerializer()
@@ -177,8 +178,8 @@ def kick_user_in_game_room(request, room_id):
 def edit_my_page(request):
     try:
         data = json.loads(request.body)
-        user_name = data['user_name']
-        nick_name = data['nick_name']
+        user_name = data['userName']
+        nick_name = data['nickName']
         picture = data['picture']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
@@ -191,7 +192,7 @@ def edit_my_page(request):
 def add_friend(request):
     try:
         data = json.loads(request.body)
-        user_name = data['user_name']
+        user_name = data['userName']
         friend = data['friend']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
@@ -205,7 +206,7 @@ def add_friend(request):
 def delete_friend(request):
     try:
         data = json.loads(request.body)
-        user_name = data['user_name']
+        user_name = data['userName']
         friend = data['friend']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
@@ -218,7 +219,7 @@ def delete_friend(request):
 def add_friend_in_ban_list(request):
     try:
         data = json.loads(request.body)
-        user_name = data['user_name']
+        user_name = data['userName']
         target = data['target']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
@@ -231,7 +232,7 @@ def add_friend_in_ban_list(request):
 def remove_friend_in_ban_list(request):
     try:
         data = json.loads(request.body)
-        user_name = data['user_name']
+        user_name = data['userName']
         target = data['target']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)

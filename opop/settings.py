@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-cb&7%-_y-9mz!3nj^jdb@wvgvw8^w%g&)v_($_g(cqa#@w@8u*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -41,7 +41,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
-
+    'corsheaders',
     'opop.models'
 ]
 
@@ -58,6 +58,7 @@ SIMPLE_JWT = {
 }
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -154,3 +155,11 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'wooozooo1123@gmail.com'
 EMAIL_HOST_PASSWORD = 'ahel idge xxmd ebll'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+CORS_ORIGIN_WHITELIST = [
+    'http://localhost:5173',
+    'http://localhost:8000',
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+

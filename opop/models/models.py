@@ -37,10 +37,12 @@ class GameRoom(models.Model):
 
 class User(models.Model):
     id = models.AutoField(primary_key=True)
+
     is_registered = models.BooleanField(default=False)
     oauth_id = models.CharField(max_length=255, default='')
-    intra_name = models.CharField(max_length=10)
+    user_name = models.CharField(max_length=10)
     nick_name = models.CharField(max_length=15, default='')
+
     picture = models.CharField(max_length=255)
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
@@ -49,10 +51,10 @@ class User(models.Model):
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
     def __str__(self):
-        return self.intra_name
+        return self.user_name
 
-    def get_intra_name(self):
-        return self.intra_name
+    def get_user_name(self):
+        return self.user_name
 
     def get_picture(self):
         return self.picture
@@ -79,7 +81,7 @@ class MatchHistory(models.Model):
     match_date = models.DateField()
 
     def __str__(self):
-        return f"{self.user.intra_name} vs. {self.opponent_name} - {self.result}"
+        return f"{self.user.user_name} vs. {self.opponent_name} - {self.result}"
 
     def get_opponent_name(self):
         return self.opponent_name
