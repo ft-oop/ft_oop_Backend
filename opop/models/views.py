@@ -22,7 +22,8 @@ class UserViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 def login(request):
     serializer = UserSerializer(data=request.data)
-    code = request.GET.get('code', '')
+    code = request.data['code']
+    print('code = ' + code)
     access_token = get_42oauth_token(code)
     user_info = get_user_info_by_api(access_token)
     user = serializer.register_user(user_info=user_info)
@@ -68,10 +69,10 @@ def get_all_users(request):
 # @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
-    intra_name = request.GET.get('userName')
+    user_name = request.GET.get('userName')
 
     try:
-        user = get_object_or_404(User, intra_name=intra_name)
+        user = get_object_or_404(User, user_name=user_name)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
 
