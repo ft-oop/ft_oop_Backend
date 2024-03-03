@@ -41,7 +41,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
-    
+
     'opop.models'
 ]
 
@@ -143,7 +143,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CLIENT_ID = 'u-s4t2ud-e5cd37c35750100ba3e0124e1161a48dc116d003c905db2d268761a44f090c48'
 CLIENT_SECRET = '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'
-LOGIN_REDIRECT_URL = 'http://localhost:8000'
+LOGIN_REDIRECT_URL = 'http://localhost:5173/login'
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
 

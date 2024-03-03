@@ -23,7 +23,7 @@ urlpatterns = [
     path('friend/ban-list/delete', views.remove_friend_in_ban_list),
 
     # 로그인 로직 
-    path('login', views.login),
+    path('oauth/login/', views.login),
     path('2FA', views.two_factor),
     path('2FA/email', views.send_email)
 ]

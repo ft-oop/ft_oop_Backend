@@ -65,7 +65,7 @@ def get_all_users(request):
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
     intra_name = request.GET.get('intra_name')
