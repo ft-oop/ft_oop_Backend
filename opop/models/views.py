@@ -5,7 +5,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, \
@@ -69,6 +69,7 @@ def get_all_users(request):
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
+@permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
     print('요청 닿긴함?')

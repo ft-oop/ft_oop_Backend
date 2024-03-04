@@ -53,7 +53,9 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
+        # 'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'opop.permission.CustomJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -65,7 +67,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=600),
+    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=20),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30)
 
 }
