@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from rest_framework import serializers
@@ -8,7 +9,7 @@ import random
 from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import User, GameRoom, MatchHistory, BlockRelation, FriendShip
+from .models import UserProfile, GameRoom, MatchHistory, BlockRelation, FriendShip
 from .. import settings
 
 
@@ -24,8 +25,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-        user = get_object_or_404(User, user_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password, host=user.get_intra_name())
+        user = get_object_or_404(UserProfile, user_name=user_name)
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password, host=user.get_user_name())
         user.game_room = game
         game.save()
         user.save()
@@ -34,10 +35,10 @@ class GameRoomSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def exit_game_room(self, user_name, room_id):
         game = get_object_or_404(GameRoom, id=room_id)
-        user = User.objects.get(user_name=user_name, game_room=game)
-        users_in_game = User.objects.filter(game_room=game)
+        user = UserProfile.objects.get(user_name=user_name, game_room=game)
+        users_in_game = UserProfile.objects.filter(game_room=game)
 
-        if game.get_host() == user.get_intra_name():
+        if game.get_host() == user.get_user_name():
             for guest in users_in_game:
                 guest.game_room = None
                 guest.save()
@@ -51,7 +52,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
         game = get_object_or_404(GameRoom, id=room_id)
         if game.get_host() != host_name:
             raise serializers.ValidationError("Invalid host name")
-        kick_user = get_object_or_404(User, user_name=user_name)
+        kick_user = get_object_or_404(UserProfile, user_name=user_name)
         kick_user.game_room = None
         kick_user.save()
 
@@ -102,7 +103,7 @@ def generate_token(user):
 
 @transaction.atomic()
 def verify_two_factor_code(code, email):
-    user = User.objects.get(email=email)
+    user = UserProfile.objects.get(email=email)
     if not user.code == code:
         raise serializers.ValidationError('2fa 코드 불일치')
     user.is_registered = True
@@ -112,7 +113,7 @@ def verify_two_factor_code(code, email):
 
 @transaction.atomic
 def send_two_factor_code(email):
-    user = User.objects.get(email=email)
+    user = UserProfile.objects.get(email=email)
     code = generate_two_factor_code()
     print(code)
     user.code = code
@@ -131,11 +132,11 @@ def generate_two_factor_code(length=6):
     return random_string
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserProfileSerializer(serializers.ModelSerializer):
     game_rooms = GameRoomSerializer(read_only=True, many=True)
 
     class Meta:
-        model = User
+        model = UserProfile
         fields = ['id', 'user_name', 'picture', 'game_rooms']
 
     @transaction.atomic
@@ -145,19 +146,19 @@ class UserSerializer(serializers.ModelSerializer):
 
     def is_registered(self, oauth_id):
         try:
-            user = User.objects.get(oauth_id=oauth_id)
+            user = UserProfile.objects.get(oauth_id=oauth_id)
             return user.is_registered()
-        except User.DoesNotExist:
+        except UserProfile.DoesNotExist:
             return False
 
     def get_by_email(self, email):
-        return get_object_or_404(User, email=email)
+        return get_object_or_404(UserProfile, email=email)
 
     @transaction.atomic
     def update_user_info(self, user_name, nick_name, picture):
-        user = get_object_or_404(User, user_name=user_name)
+        user = get_object_or_404(UserProfile, user_name=user_name)
         if nick_name is not None:
-            if not User.objects.filter(nick_name=nick_name).exists():
+            if not UserProfile.objects.filter(nick_name=nick_name).exists():
                 user.nick_name = nick_name
             else:
                 raise serializers.ValidationError("This nickName is already in use.")
@@ -168,19 +169,27 @@ class UserSerializer(serializers.ModelSerializer):
     # email, intra_name, picture 저장
     @transaction.atomic
     def register_user(self, user_info):
-        intra_name = user_info.get('login')
+        user_name = user_info.get('login')
         picture = user_info['image']['link']
         email = user_info.get('email')
         oauth_id = user_info.get('id')
 
-        user, created = User.objects.get_or_create(intra_name=intra_name, defaults={
-            'intra_name': intra_name,
+        user, user_created = User.objects.get_or_create(username=user_name, defaults={
+            'email': email,
+            'is_registered': False
+        })
+
+        user_profile, profile_created = UserProfile.objects.get_or_create(user=user, defaults={
+            'user_name': user_name,
             'email': email,
             'picture': picture,
             'oauth_id': oauth_id,
             'is_registered': False
         })
-        user.save()
+
+        if profile_created:
+            user_profile.save()
+
         return user
 
 
@@ -212,7 +221,7 @@ class UserInfoSerializer(serializers.ModelSerializer):
     match_history = MatchSerializer(many=True, read_only=True)
 
     class Meta:
-        model = User
+        model = UserProfile
         fields = ['total_win', 'total_lose', 'match_history', ]
 
 
@@ -220,7 +229,7 @@ class FriendSerializer(serializers.ModelSerializer):
     friend = serializers.SerializerMethodField()
 
     class Meta:
-        model = User
+        model = UserProfile
         fields = ['friend']
 
     def get_friend(self, obj):
@@ -229,8 +238,8 @@ class FriendSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def add_friend(self, user_name, friend_name):
-        user = get_object_or_404(User, user_name=user_name)
-        friend = get_object_or_404(User, user_name=friend_name)
+        user = get_object_or_404(UserProfile, user_name=user_name)
+        friend = get_object_or_404(UserProfile, user_name=friend_name)
         if not FriendShip.objects.filter(owner=user, friend=friend).exists():
             friend_ship = FriendShip(owner=user, friend=friend)
             friend_ship.save()
@@ -239,8 +248,8 @@ class FriendSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def delete_friend(self, user_name, friend_name):
-        user = get_object_or_404(User, user_name=user_name)
-        friend = get_object_or_404(User, user_name=friend_name)
+        user = get_object_or_404(UserProfile, user_name=user_name)
+        friend = get_object_or_404(UserProfile, user_name=friend_name)
         friend_ship = get_object_or_404(FriendShip, owner=user, friend=friend)
         friend_ship.delete()
 
@@ -258,8 +267,8 @@ class BlockRelationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def add_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(User, user_name=user_name)
-        target = get_object_or_404(User, user_name=target)
+        user = get_object_or_404(UserProfile, user_name=user_name)
+        target = get_object_or_404(UserProfile, user_name=target)
         if not BlockRelation.objects.filter(blocked=target, blocked_by=user).exists():
             block_relation = BlockRelation(blocked=target, blocked_by=user)
             block_relation.save()
@@ -272,8 +281,8 @@ class BlockRelationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def remove_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(User, user_name=user_name)
-        target = get_object_or_404(User, user_name=target)
+        user = get_object_or_404(UserProfile, user_name=user_name)
+        target = get_object_or_404(UserProfile, user_name=target)
         block_relation = get_object_or_404(BlockRelation, blocked=target, blocked_by=user)
         block_relation.delete()
 
@@ -283,7 +292,7 @@ class MyPageSerializer(serializers.ModelSerializer):
     ban_list = serializers.SerializerMethodField()
 
     class Meta:
-        model = User
+        model = UserProfile
         fields = ['user_name', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
 
     def get_friends(self, obj):
@@ -307,13 +316,13 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
 
     def get_host_picture(self, obj):
         host_name = obj.get_host()
-        host = User.objects.filter(user_name=host_name)
+        host = UserProfile.objects.filter(user_name=host_name)
         host_picture = host.get_picture()
         return host_picture
 
     @transaction.atomic
     def enter_dual_room(self, user_name, room_id, password):
-        user = get_object_or_404(User, user_name=user_name)
+        user = get_object_or_404(UserProfile, user_name=user_name)
         game_room = get_object_or_404(GameRoom, id=room_id)
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
@@ -323,7 +332,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Passwords do not match')
         user.game_room = game_room
         user.save()
-        host = get_object_or_404(User, user_name=game_room.get_host())
+        host = get_object_or_404(UserProfile, user_name=game_room.get_host())
         return {"hostPicture": host.get_picture()}
 
 
@@ -341,29 +350,29 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
 
     def get_host_picture(self, obj):
         host_name = obj.get_host()
-        host = User.objects.filter(user_name=host_name)
+        host = UserProfile.objects.filter(user_name=host_name)
         host_picture = host.get_picture()
         return host_picture
 
     def get_guest_list(self, obj):
-        users = User.objects.filter(game_room=obj)
+        users = UserProfile.objects.filter(game_room=obj)
         guest_list = [{'nic_name': user.get_nick_name(), 'picture': user.get_picture()} for user in users]
         return guest_list
 
     def enter_tournament_room(self, nick_name, user_name, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
-        users_in_game = User.objects.filter(game_room=game_room)
+        users_in_game = UserProfile.objects.filter(game_room=game_room)
         if game_room.room_type != 1:
             raise serializers.ValidationError("Invalid Room Type")
         if game_room.password != password:
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
-        user = get_object_or_404(User, username=user_name)
+        user = get_object_or_404(UserProfile, username=user_name)
         user.nick_name = nick_name
         user.game_room = game_room
 
-        host_picture = get_object_or_404(User, user_name=game_room.get_host()).get_picture()
+        host_picture = get_object_or_404(UserProfile, user_name=game_room.get_host()).get_picture()
         guest_list = self.get_guest_list(game_room)
         user.save()
 

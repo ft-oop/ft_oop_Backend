@@ -24,6 +24,6 @@ urlpatterns = [
 
     # 로그인 로직 
     path('oauth/login/', views.login),
-    path('2FA', views.two_factor),
-    path('2FA/email', views.send_email)
+    path('oauth/login/2FA', views.two_factor),
+    path('oauth/login/2FA/email', views.send_email)
 ]
