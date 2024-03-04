@@ -8,6 +8,7 @@ import string
 import random
 from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import UserProfile, GameRoom, MatchHistory, BlockRelation, FriendShip
 from .. import settings
@@ -26,7 +27,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError('Invalid game type')
         user = get_object_or_404(UserProfile, user_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password, host=user.get_user_name())
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
+                        host=user.get_user_name())
         user.game_room = game
         game.save()
         user.save()
@@ -102,18 +104,20 @@ def generate_token(user):
 
 
 @transaction.atomic()
-def verify_two_factor_code(code, email):
-    user = UserProfile.objects.get(email=email)
-    if not user.code == code:
+def verify_two_factor_code(code, user_id):
+    user = User.objects.filter(id=user_id).first()
+    user_profile = UserProfile.objects.get(user_id=user)
+
+    if not user_profile.code == code:
         raise serializers.ValidationError('2fa 코드 불일치')
     user.is_registered = True
     user.save()
-    return True
+    return user
 
 
 @transaction.atomic
-def send_two_factor_code(email):
-    user = UserProfile.objects.get(email=email)
+def send_two_factor_code(email, user_id):
+    user = UserProfile.objects.get(user_id=user_id)
     code = generate_two_factor_code()
     print(code)
     user.code = code
@@ -137,7 +141,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user_name', 'picture', 'game_rooms']
+        fields = ['game_rooms']
 
     @transaction.atomic
     def set_nick_name(self, obj, nick_name):
@@ -176,21 +180,27 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         user, user_created = User.objects.get_or_create(username=user_name, defaults={
             'email': email,
-            'is_registered': False
+            'is_registered': False,
+            'picture': picture
         })
 
         user_profile, profile_created = UserProfile.objects.get_or_create(user=user, defaults={
-            'user_name': user_name,
-            'email': email,
-            'picture': picture,
             'oauth_id': oauth_id,
-            'is_registered': False
         })
 
         if profile_created:
+            user.save()
             user_profile.save()
 
         return user
+
+
+class UserSerializer(serializers.ModelSerializer):
+    user_profile = UserProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'picture', 'email', 'user_profile']
 
 
 class MatchSerializer(serializers.ModelSerializer):
@@ -377,3 +387,11 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         user.save()
 
         return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
+
+
+def get_user_info_from_token(request):
+    header = request.META.get("HTTP_AUTHORIZATION")
+    token_str = header.split('Bearer ')[1]
+    token = AccessToken(token_str)
+
+    return token['user_id']

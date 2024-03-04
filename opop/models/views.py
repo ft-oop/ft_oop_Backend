@@ -1,5 +1,6 @@
 import json
 
+from django.contrib.auth.models import User
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
@@ -7,9 +8,11 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
-from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, DualGameRoomSerializer, \
+from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, \
+    DualGameRoomSerializer, \
     TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, get_user_info_by_api, \
-    get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code
+    get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code, get_user_info_from_token, \
+    UserSerializer
 from .models import UserProfile, BlockRelation, MatchHistory, FriendShip, GameRoom
 from django.http import HttpResponse, JsonResponse
 
@@ -44,20 +47,18 @@ def reissue_access_token(request):
 
 @api_view(['GET'])
 def send_email(request):
-    print('요청이 닿았을까요')
-    email = request.GET.get('email')
+    user_id = get_user_info_from_token(request)
+    email = User.objects.get(id=user_id).email
     print(email)
-    send_two_factor_code(email)
+    send_two_factor_code(email, user_id)
     return HttpResponse(status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
 def two_factor(request):
-    serializer = UserProfileSerializer(data=request.data)
-    code = request.data['two_factor_code']
-    email = request.data['email']
-    verify_two_factor_code(code, email)
-    user = serializer.get_by_email(email)
+    user_id = get_user_info_from_token(request)
+    code = request.data['code']
+    user = verify_two_factor_code(code, user_id)
     return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
 
 
@@ -68,17 +69,16 @@ def get_all_users(request):
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
-# @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
-    user_name = request.GET.get('userName')
-
+    print('요청 닿긴함?')
+    user_id = get_user_info_from_token(request)
     try:
-        user = get_object_or_404(UserProfile, user_name=user_name)
+        user = get_object_or_404(User, id=user_id)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
 
-    serializer = UserProfileSerializer(user, many=False)
+    serializer = UserSerializer(user, many=False)
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
