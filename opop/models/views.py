@@ -23,7 +23,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes((AllowAny,))
 def login(request):
     serializer = UserProfileSerializer(data=request.data)
     code = request.data['code']
@@ -38,8 +38,11 @@ def login(request):
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def reissue_access_token(request):
+    print('재발급 요청 실행')
     serializer = TokenRefreshSerializer(data=request.data)
+    print(serializer)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
     return JsonResponse(data, status=status.HTTP_200_OK)

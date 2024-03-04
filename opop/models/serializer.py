@@ -98,8 +98,8 @@ def generate_token(user):
     access_token = str(token.access_token)
 
     return {
-        'access_token': access_token,
-        'refresh_token': refresh_token
+        'access': access_token,
+        'refresh': refresh_token
     }
 
 
