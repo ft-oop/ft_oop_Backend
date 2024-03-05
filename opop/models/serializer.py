@@ -150,7 +150,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def is_registered(self, oauth_id):
         try:
-            user = UserProfile.objects.get(oauth_id=oauth_id)
+            user = User.objects.get(oauth_id=oauth_id)
             return user.is_registered()
         except UserProfile.DoesNotExist:
             return False
