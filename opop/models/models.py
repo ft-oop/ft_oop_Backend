@@ -1,4 +1,7 @@
+from django.contrib.auth.models import User
 from django.db import models, transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 # Create your models here.
@@ -35,18 +38,15 @@ class GameRoom(models.Model):
         return list(self.users.all())
 
 
-class User(models.Model):
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     id = models.AutoField(primary_key=True)
 
-    is_registered = models.BooleanField(default=False)
     oauth_id = models.CharField(max_length=255, default='')
-    user_name = models.CharField(max_length=10)
     nick_name = models.CharField(max_length=15, default='')
 
-    picture = models.CharField(max_length=255)
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
-    email = models.EmailField()
     code = models.CharField(max_length=6, default='')
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
@@ -72,10 +72,21 @@ class User(models.Model):
         return self.nick_name
 
 
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    instance.profile.save()
+
+
 class MatchHistory(models.Model):
     id = models.AutoField(primary_key=True)
     opponent_name = models.CharField(max_length=10)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_history')
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='match_history')
     result = models.CharField(max_length=10)
     game_type = models.CharField(max_length=10)
     match_date = models.DateField()
@@ -98,18 +109,18 @@ class MatchHistory(models.Model):
 
 class FriendShip(models.Model):
     id = models.AutoField(primary_key=True)
-    owner = models.ForeignKey(User, related_name='friendships', on_delete=models.CASCADE)
-    friend = models.ForeignKey(User, related_name='friends', on_delete=models.CASCADE)
+    owner = models.ForeignKey(UserProfile, related_name='friendships', on_delete=models.CASCADE)
+    friend = models.ForeignKey(UserProfile, related_name='friends', on_delete=models.CASCADE)
 
 
 class Message(models.Model):
     id = models.AutoField(primary_key=True)
-    sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
-    receiver = models.ForeignKey(User, related_name='received_messages', on_delete=models.CASCADE)
+    sender = models.ForeignKey(UserProfile, related_name='sent_messages', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(UserProfile, related_name='received_messages', on_delete=models.CASCADE)
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
 
 class BlockRelation(models.Model):
-    blocked = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by_relations')
-    blocked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking_relations')
+    blocked = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='blocked_by_relations')
+    blocked_by = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='blocking_relations')
