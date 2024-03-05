@@ -25,15 +25,13 @@ class UserViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes((AllowAny,))
 def login(request):
-    serializer = UserProfileSerializer(data=request.data)
+    serializer = UserSerializer(data=request.data)
     code = request.data['code']
-    print('code = ' + code)
     access_token = get_42oauth_token(code)
     user_info = get_user_info_by_api(access_token)
     user = serializer.register_user(user_info=user_info)
-    user_profile = UserProfile.objects.get(user_id=user)
 
-    if not user_profile.is_registered:
+    if not user.profile.is_registered:
         return JsonResponse(generate_token(user), safe=False, status=status.HTTP_201_CREATED)
     return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
@@ -43,7 +41,6 @@ def login(request):
 def reissue_access_token(request):
     print('재발급 요청 실행')
     serializer = TokenRefreshSerializer(data=request.data)
-    print(serializer)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
     return JsonResponse(data, status=status.HTTP_200_OK)
@@ -52,8 +49,7 @@ def reissue_access_token(request):
 @api_view(['GET'])
 def send_email(request):
     user_id = get_user_info_from_token(request)
-    email = User.objects.get(id=user_id).email
-    print(email)
+    email = get_object_or_404(User, id=user_id).email
     send_two_factor_code(email, user_id)
     return HttpResponse(status=status.HTTP_200_OK)
 
@@ -73,10 +69,8 @@ def get_all_users(request):
     return JsonResponse(serializer.data, safe=False, status=200)
 
 
-@permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def get_user(request):
-    print('요청 닿긴함?')
     user_id = get_user_info_from_token(request)
     try:
         user = get_object_or_404(User, id=user_id)
@@ -89,15 +83,15 @@ def get_user(request):
 
 @api_view(['GET'])
 def get_user_info(request):
-    intra_name = request.GET.get('userName')
+    user_id = get_user_info_from_token(request)
     user_name = request.GET.get('user')
 
     try:
-        me = get_object_or_404(UserProfile, user_name=intra_name)
+        me = get_object_or_404(UserProfile, user_id=user_id)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     try:
-        find_user = get_object_or_404(UserProfile, user_name=user_name)
+        find_user = get_object_or_404(User, username=user_name)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
@@ -110,9 +104,9 @@ def get_user_info(request):
 
 @api_view(['GET'])
 def get_my_page(request):
-    user_name = request.GET.get('userName')
+    user_id = get_user_info_from_token(request)
     try:
-        user = get_object_or_404(UserProfile, user_name=user_name)
+        user = get_object_or_404(UserProfile, user_id=user_id)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     my_page_dto = MyPageSerializer(user).data
@@ -184,15 +178,15 @@ def kick_user_in_game_room(request, room_id):
 
 @api_view(['POST'])
 def edit_my_page(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
         nick_name = data['nickName']
         picture = data['picture']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     servie = UserProfileSerializer()
-    servie.update_user_info(user_name, nick_name, picture)
+    servie.update_user_info(user_id, nick_name, picture)
     return JsonResponse('OK', safe=False, status=200)
 
 

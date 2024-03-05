@@ -42,16 +42,16 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     id = models.AutoField(primary_key=True)
 
-    oauth_id = models.CharField(max_length=255, default='')
+    oauth_id = models.IntegerField(default=0)
     nick_name = models.CharField(max_length=15, default='')
 
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
-    code = models.CharField(max_length=6, default='')
+    code = models.CharField(max_length=6, default='default')
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
     # User 정보에서 이동
-    picture = models.CharField(max_length=500, blank=True)
+    picture = models.ImageField(max_length=500, blank=True)
     is_registered = models.BooleanField(default=False)
 
     def get_picture(self):
@@ -66,8 +66,6 @@ class UserProfile(models.Model):
     def get_is_registered(self):
         return self.is_registered
 
-    def get_picture(self):
-        return self.picture
     def get_nick_name(self):
         return self.nick_name
 

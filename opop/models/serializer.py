@@ -159,22 +159,32 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return get_object_or_404(UserProfile, email=email)
 
     @transaction.atomic
-    def update_user_info(self, user_name, nick_name, picture):
-        user = get_object_or_404(UserProfile, user_name=user_name)
+    def update_user_info(self, user_id, nick_name, picture):
+        user_profile = get_object_or_404(User, id=user_id).profile
         if nick_name is not None:
             if not UserProfile.objects.filter(nick_name=nick_name).exists():
-                user.nick_name = nick_name
+                user_profile.nick_name = nick_name
             else:
                 raise serializers.ValidationError("This nickName is already in use.")
-        if picture is not None:
-            user.picture = picture
-        user.save()
+        if picture:
+            user_profile.picture = picture
+        user_profile.save()
 
-    # email, intra_name, picture 저장
+
+class UserSerializer(serializers.ModelSerializer):
+    game_rooms = GameRoomSerializer(source='profile.game_rooms', read_only=True, many=True)
+    picture = serializers.CharField(source='profile.picture', read_only=True)
+    nick_name = serializers.CharField(source='profile.nick_name', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'nick_name', 'username', 'email', 'picture', 'game_rooms']
+
     @transaction.atomic
     def register_user(self, user_info):
         user_name = user_info.get('login')
         picture = user_info['image']['link']
+        print('picture ====' + picture)
         email = user_info.get('email')
         oauth_id = user_info.get('id')
 
@@ -183,24 +193,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
         })
 
         user_profile, profile_created = UserProfile.objects.get_or_create(user=user, defaults={
+            'picture': picture,
             'oauth_id': oauth_id,
             'is_registered': False,
-            'picture': picture
         })
 
-        if profile_created:
-            user.save()
-            user_profile.save()
+        user_profile.picture = picture
+        user_profile.oauth_id = oauth_id
+
+        user.save()
+        user_profile.save()
 
         return user
-
-
-class UserSerializer(serializers.ModelSerializer):
-    user_profile = UserProfileSerializer(read_only=True)
-
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'user_profile']
 
 
 class MatchSerializer(serializers.ModelSerializer):
@@ -300,10 +304,11 @@ class BlockRelationSerializer(serializers.ModelSerializer):
 class MyPageSerializer(serializers.ModelSerializer):
     friends = serializers.SerializerMethodField()
     ban_list = serializers.SerializerMethodField()
+    username = serializers.CharField(source='user.username', read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ['user_name', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
+        fields = ['username', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
