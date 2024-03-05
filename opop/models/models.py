@@ -50,11 +50,9 @@ class UserProfile(models.Model):
     code = models.CharField(max_length=6, default='')
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
-    def __str__(self):
-        return self.user_name
-
-    def get_user_name(self):
-        return self.user_name
+    # User 정보에서 이동
+    picture = models.CharField(max_length=500, blank=True)
+    is_registered = models.BooleanField(default=False)
 
     def get_picture(self):
         return self.picture
@@ -65,11 +63,14 @@ class UserProfile(models.Model):
     def get_total_lose(self):
         return self.total_lose
 
-    def get_email(self):
-        return self.email
+    def get_is_registered(self):
+        return self.is_registered
 
+    def get_picture(self):
+        return self.picture
     def get_nick_name(self):
         return self.nick_name
+
 
 
 @receiver(post_save, sender=User)

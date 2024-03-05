@@ -110,8 +110,8 @@ def verify_two_factor_code(code, user_id):
 
     if not user_profile.code == code:
         raise serializers.ValidationError('2fa 코드 불일치')
-    user.is_registered = True
-    user.save()
+    user_profile.is_registered = True
+    user_profile.save()
     return user
 
 
@@ -141,7 +141,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['game_rooms']
+        fields = ['game_rooms', 'picture']
 
     @transaction.atomic
     def set_nick_name(self, obj, nick_name):
@@ -180,12 +180,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         user, user_created = User.objects.get_or_create(username=user_name, defaults={
             'email': email,
-            'is_registered': False,
-            'picture': picture
         })
 
         user_profile, profile_created = UserProfile.objects.get_or_create(user=user, defaults={
             'oauth_id': oauth_id,
+            'is_registered': False,
+            'picture': picture
         })
 
         if profile_created:
@@ -200,7 +200,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'picture', 'email', 'user_profile']
+        fields = ['id', 'username', 'email', 'user_profile']
 
 
 class MatchSerializer(serializers.ModelSerializer):
@@ -343,7 +343,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         user.game_room = game_room
         user.save()
         host = get_object_or_404(UserProfile, user_name=game_room.get_host())
-        return {"hostPicture": host.get_picture()}
+        return {"hostPicture": host.picture()}
 
 
 class TournamentRoomSerializer(serializers.ModelSerializer):

@@ -31,8 +31,9 @@ def login(request):
     access_token = get_42oauth_token(code)
     user_info = get_user_info_by_api(access_token)
     user = serializer.register_user(user_info=user_info)
+    user_profile = UserProfile.objects.get(user_id=user)
 
-    if not user.is_registered:
+    if not user_profile.is_registered:
         return JsonResponse(generate_token(user), safe=False, status=status.HTTP_201_CREATED)
     return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
