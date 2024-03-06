@@ -303,12 +303,12 @@ class BlockRelationSerializer(serializers.ModelSerializer):
 
 class MyPageSerializer(serializers.ModelSerializer):
     friends = serializers.SerializerMethodField()
-    banList = serializers.SerializerMethodField()
+    ban_list = serializers.SerializerMethodField()
     username = serializers.CharField(source='user.username', read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ['username', 'picture', 'totalWin', 'totalLose', 'friends', 'banList']
+        fields = ['username', 'picture', 'totalWin', 'totalLose', 'friends', 'ban_list']
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
@@ -316,10 +316,10 @@ class MyPageSerializer(serializers.ModelSerializer):
                        friends]
         return friend_list
 
-    def get_banList(self, obj):
+    def get_ban_list(self, obj):
         bans = BlockRelation.objects.filter(blocked_by=obj)
-        banList = [{'user_name': ban.blocked.user_name, 'picture': ban.blocked.picture} for ban in bans]
-        return banList
+        ban_list = [{'user_name': ban.blocked.user_name, 'picture': ban.blocked.picture} for ban in bans]
+        return ban_list
 
 
 class DualGameRoomSerializer(serializers.ModelSerializer):
