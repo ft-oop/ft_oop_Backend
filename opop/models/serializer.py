@@ -308,7 +308,7 @@ class MyPageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['username', 'picture', 'totalWin', 'totalLose', 'friends', 'banList']
+        fields = ['userName', 'picture', 'totalWin', 'totalLose', 'friends', 'banList']
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
