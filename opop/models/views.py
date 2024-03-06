@@ -84,14 +84,14 @@ def get_user(request):
 @api_view(['GET'])
 def get_user_info(request):
     user_id = get_user_info_from_token(request)
-    user_name = request.GET.get('user')
+    user_name = request.GET.get('userName')
 
     try:
-        me = get_object_or_404(UserProfile, user_id=user_id)
+        me = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     try:
-        find_user = get_object_or_404(User, username=user_name)
+        find_user = get_object_or_404(User, username=user_name).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
@@ -110,7 +110,6 @@ def get_my_page(request):
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     my_page_dto = MyPageSerializer(user).data
-
     return JsonResponse(my_page_dto, safe=False, status=200)
 
 
@@ -181,12 +180,12 @@ def edit_my_page(request):
     user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        nick_name = data['nickName']
+        new_name = data['newName']
         picture = data['picture']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     servie = UserProfileSerializer()
-    servie.update_user_info(user_id, nick_name, picture)
+    servie.update_user_info(user_id, new_name, picture)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -204,40 +203,40 @@ def add_friend(request):
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['DELETE'])
+@api_view(['POST'])
 def delete_friend(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
-        friend = data['friend']
+        friend = data['friendName']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = FriendSerializer()
-    service.delete_friend(user_name, friend)
+    service.delete_friend(user_id, friend)
     return JsonResponse('OK', safe=False, status=200)
 
 
 @api_view(['POST'])
 def add_friend_in_ban_list(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
-        target = data['target']
+        target = data['blockName']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = BlockRelationSerializer()
-    service.add_friend_in_ban_list(user_name, target)
+    service.add_friend_in_ban_list(user_id, target)
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['DELETE'])
+@api_view(['POST'])
 def remove_friend_in_ban_list(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
-        target = data['target']
+        target = data['blockName']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = BlockRelationSerializer()
-    service.remove_friend_in_ban_list(user_name, target)
+    service.remove_friend_in_ban_list(user_id, target)
     return JsonResponse('OK', safe=False, status=200)

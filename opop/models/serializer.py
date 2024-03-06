@@ -159,16 +159,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return get_object_or_404(UserProfile, email=email)
 
     @transaction.atomic
-    def update_user_info(self, user_id, nick_name, picture):
-        user_profile = get_object_or_404(User, id=user_id).profile
-        if nick_name is not None:
-            if not UserProfile.objects.filter(nick_name=nick_name).exists():
-                user_profile.nick_name = nick_name
+    def update_user_info(self, user_id, new_name, picture):
+        user = get_object_or_404(User, id=user_id)
+        if new_name is not None and new_name != "":
+            if not User.objects.filter(username=new_name).exists():
+                user.username = new_name
+                user.save()
             else:
                 raise serializers.ValidationError("This nickName is already in use.")
         if picture:
-            user_profile.picture = picture
-        user_profile.save()
+            user.profile.picture = picture
+        user.profile.save()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -233,10 +234,10 @@ class MatchSerializer(serializers.ModelSerializer):
 
 class UserInfoSerializer(serializers.ModelSerializer):
     match_history = MatchSerializer(many=True, read_only=True)
-
+    username = serializers.CharField(source='user.username', read_only=True)
     class Meta:
         model = UserProfile
-        fields = ['total_win', 'total_lose', 'match_history', ]
+        fields = ['username', 'total_win', 'total_lose', 'match_history', 'picture']
 
 
 class FriendSerializer(serializers.ModelSerializer):
@@ -261,9 +262,9 @@ class FriendSerializer(serializers.ModelSerializer):
             serializers.ValidationError("Friendship already exists.")
 
     @transaction.atomic
-    def delete_friend(self, user_name, friend_name):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        friend = get_object_or_404(UserProfile, user_name=friend_name)
+    def delete_friend(self, user_id, friend_name):
+        user = get_object_or_404(User, id=user_id).profile
+        friend = get_object_or_404(User, username=friend_name).profile
         friend_ship = get_object_or_404(FriendShip, owner=user, friend=friend)
         friend_ship.delete()
 
@@ -280,23 +281,23 @@ class BlockRelationSerializer(serializers.ModelSerializer):
         return {'user_name': user.user_name, 'picture': user.picture}  # 필요한 필드를 선택하여 반환
 
     @transaction.atomic
-    def add_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        target = get_object_or_404(UserProfile, user_name=target)
+    def add_friend_in_ban_list(self, user_id, target):
+        user = get_object_or_404(User, id=user_id).profile
+        target = get_object_or_404(User, username=target).profile
         if not BlockRelation.objects.filter(blocked=target, blocked_by=user).exists():
             block_relation = BlockRelation(blocked=target, blocked_by=user)
             block_relation.save()
             # 친구 목록에서도 삭제해야할까??
-            # if FriendShip.objects.filter(owner=user, friend=target).exists():
-            #     friend_ship = FriendShip.objects.get(owner=user, friend=target)
-            #     friend_ship.delete()
+            friend_ship = FriendShip.objects.filter(owner=user, friend=target)
+            if friend_ship.exists():
+                friend_ship.delete()
         else:
             serializers.ValidationError("Already blocked user.")
 
     @transaction.atomic
-    def remove_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        target = get_object_or_404(UserProfile, user_name=target)
+    def remove_friend_in_ban_list(self, user_id, target):
+        user = get_object_or_404(User, id=user_id).profile
+        target = get_object_or_404(User, username=target).profile
         block_relation = get_object_or_404(BlockRelation, blocked=target, blocked_by=user)
         block_relation.delete()
 
@@ -312,13 +313,13 @@ class MyPageSerializer(serializers.ModelSerializer):
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
-        friend_list = [{'user_name': friend.friend.user_name, 'picture': friend.friend.picture} for friend in
+        friend_list = [{'username': f.friend.user.username, 'picture': f.friend.picture} for f in
                        friends]
         return friend_list
 
     def get_ban_list(self, obj):
         bans = BlockRelation.objects.filter(blocked_by=obj)
-        ban_list = [{'user_name': ban.blocked.user_name, 'picture': ban.blocked.picture} for ban in bans]
+        ban_list = [{'username': ban.blocked.user.username, 'picture': ban.blocked.picture} for ban in bans]
         return ban_list
 
 
