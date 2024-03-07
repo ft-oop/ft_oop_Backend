@@ -55,8 +55,8 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
-    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=20),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30)
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=45),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=14)
 
 }
 
@@ -146,7 +146,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CLIENT_ID = 'u-s4t2ud-e5cd37c35750100ba3e0124e1161a48dc116d003c905db2d268761a44f090c48'
 CLIENT_SECRET = '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'
-LOGIN_REDIRECT_URL = 'http://localhost:5173/login'
+LOGIN_REDIRECT_URL = 'http://10.13.6.5:5173/login'
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
 
@@ -159,8 +159,8 @@ EMAIL_HOST_PASSWORD = 'ahel idge xxmd ebll'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 CORS_ORIGIN_WHITELIST = [
-    'http://localhost:5173',
-    'http://localhost:8000',
+    'http://10.13.6.5:5173',
+    'http://10.13.6.5:8000',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
