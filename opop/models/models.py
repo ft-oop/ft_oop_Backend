@@ -47,11 +47,11 @@ class UserProfile(models.Model):
 
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
-    code = models.CharField(max_length=6, default='default')
+    code = models.CharField(max_length=6, default='')
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
     # User 정보에서 이동
-    picture = models.CharField(max_length=5000, blank=True)
+    picture = models.TextField()
     is_registered = models.BooleanField(default=False)
 
     def get_picture(self):
