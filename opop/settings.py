@@ -154,7 +154,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CLIENT_ID = 'u-s4t2ud-80593f2ca92d09f7d42166593b99cc335953a89bc775c0596ac93a9eb3bc4c44'
 CLIENT_SECRET = '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'
-LOGIN_REDIRECT_URL = 'http://10.13.6.7:5173/login'
+LOGIN_REDIRECT_URL = 'http://10.13.6.6:5173/login'
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
 
@@ -167,7 +167,7 @@ EMAIL_HOST_PASSWORD = 'ahel idge xxmd ebll'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 CORS_ORIGIN_WHITELIST = [
-    'http://10.13.6.7:5173',
+    'http://10.13.6.6:5173',
     'http://10.13.6.5:8000',
 ]
 
