@@ -85,7 +85,6 @@ def get_user(request):
 def get_user_info(request):
     user_id = get_user_info_from_token(request)
     user_name = request.GET.get('userName')
-
     try:
         me = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
@@ -106,7 +105,7 @@ def get_user_info(request):
 def get_my_page(request):
     user_id = get_user_info_from_token(request)
     try:
-        user = get_object_or_404(UserProfile, user_id=user_id)
+        user = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     my_page_dto = MyPageSerializer(user).data
