@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'channels',
+
     'corsheaders',
     'opop.models'
 ] + THIRD_PARTIES
@@ -90,6 +92,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'opop.wsgi.application'
+ASGI_APPLICATION = 'opop.asgi.application'
 
 
 # Database
