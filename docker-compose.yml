@@ -1,20 +1,49 @@
-version : '3'
+version: "3"
 
-services :
-  django :
-    container_name : app
-    image : app
-    pull_policy : never
-    build : ./ft_oop_Backend
-    ports :
+services:
+  django:
+    container_name: app
+    image: app
+    pull_policy: never
+    depends_on:
+      - postgres
+    build: .
+    ports:
       - 8000:8000
-    volumes :
+    volumes:
       - oop-volume:/app/src
+    networks:
+      - ft_transcend
+    restart: always
+
+  postgres:
+    container_name: postgres
+    image: postgres
+    volumes:
+      - oop-postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1234
+    networks:
+      - ft_transcend
+    restart: always
 
 volumes:
   oop-volume:
     driver: local
     driver_opts:
-      device: /Users/parksuhwan/Desktop/About42/oop_Backend/ft_oop_Backend
+      device: /Users/julien/PycharmProjects/ft_oop_Backend
       type: none
       o: bind
+
+  oop-postgres:
+    driver: local
+    driver_opts:
+      device: /Users/julien/PycharmProjects/ft_oop_Backend/postgres
+      type: none
+      o: bind
+
+networks:
+  ft_transcend:
+    driver: bridge
