@@ -123,11 +123,13 @@ class OopConsumer(AsyncWebsocketConsumer):
             "online_users",
             self.channel_name
         )
-        await self.send(message)
         await self.accept()
+        print("[Log]: Client Connected")
+        await self.send(json.dumps(message))
 
     async def disconnect(self, close_code):
         global online_users
+        print("[Log]: Client Disconnected")
         online_users.remove(self.user.id)
         message = {"type": "user_status", "user_id": self.user.id, "status": "offline"}
         await self.send(message)
@@ -141,15 +143,17 @@ class OopConsumer(AsyncWebsocketConsumer):
     # 클라이언트에서 서버로 메세지를 보낼 때 사용
     # 클라이언트로부터 메세지를 받았을 때 호출되는 함수
     async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json['message']
+        # text_data_json = json.loads(text_data)
+        # message = text_data_json['message']
+        print("[Log]: Got a message from client")
+        print(text_data)
 
         # Send message to room group
         await self.channel_layer.group_send(
             "online_users",
             {
                 'type': 'broadcast_message',
-                'message': message
+                'message': text_data
             }
         )
 

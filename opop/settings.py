@@ -91,6 +91,12 @@ TEMPLATES = [
     },
 ]
 
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+
 WSGI_APPLICATION = 'opop.wsgi.application'
 ASGI_APPLICATION = 'opop.asgi.application'
 
@@ -99,18 +105,18 @@ ASGI_APPLICATION = 'opop.asgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': '1234',
-        'HOST': 'postgres',
-        'PORT': 5432,
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'postgres',
+    #     'USER': 'postgres',
+    #     'PASSWORD': '1234',
+    #     'HOST': 'postgres',
+    #     'PORT': 5432,
+    # }
 }
 
 
@@ -155,9 +161,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CLIENT_ID = 'u-s4t2ud-80593f2ca92d09f7d42166593b99cc335953a89bc775c0596ac93a9eb3bc4c44'
-CLIENT_SECRET = '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'
-LOGIN_REDIRECT_URL = 'http://10.13.6.6:5173/login'
+CLIENT_ID = 'u-s4t2ud-e5cd37c35750100ba3e0124e1161a48dc116d003c905db2d268761a44f090c48'
+CLIENT_SECRET = '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'
+# LOGIN_REDIRECT_URL = 'http://10.13.6.6:5173/login'
+LOGIN_REDIRECT_URL = 'http://localhost:5173/login'
+
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
 
