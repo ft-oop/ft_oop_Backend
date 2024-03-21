@@ -1,6 +1,6 @@
 from pathlib import Path
 from datetime import timedelta
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-cb&7%-_y-9mz!3nj^jdb@wvgvw8^w%g&)v_($_g(cqa#@w@8u*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -75,8 +75,7 @@ ROOT_URLCONF = 'opop.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates']
-        ,
+        'DIRS': [BASE_DIR, 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -145,7 +144,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+STATICFILES_DIRS = [
+    ('assets', os.path.join(BASE_DIR, 'build'))
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -154,7 +159,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CLIENT_ID = 'u-s4t2ud-80593f2ca92d09f7d42166593b99cc335953a89bc775c0596ac93a9eb3bc4c44'
 CLIENT_SECRET = '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'
-LOGIN_REDIRECT_URL = 'http://10.13.6.7:5173/login'
+LOGIN_REDIRECT_URL = 'http://localhost/login'
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
 
@@ -167,8 +172,8 @@ EMAIL_HOST_PASSWORD = 'ahel idge xxmd ebll'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 CORS_ORIGIN_WHITELIST = [
-    'http://10.13.6.7:5173',
-    'http://10.13.6.5:8000',
+    'http://localhost:80',
+    'http://localhost:8000',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
