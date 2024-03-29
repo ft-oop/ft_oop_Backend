@@ -19,10 +19,10 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'opop.settings')
 django_asgi_app = get_asgi_application()
 
 application = ProtocolTypeRouter({
-	"http": django_asgi_app,
+	'http': django_asgi_app,
 	"websocket": AuthMiddlewareStack(
-		URLRouter(
-			opop.routing.websocket_urlpatterns
-		)
+        URLRouter(
+            opop.routing.websocket_urlpatterns
+        )
 	),
 })

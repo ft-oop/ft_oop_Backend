@@ -34,11 +34,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    'channels',
-
     'corsheaders',
-    'opop.models'
+    'opop.models',
+    'channels',
 ] + THIRD_PARTIES
 
 REST_FRAMEWORK = {
@@ -91,8 +89,12 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'opop.wsgi.application'
-ASGI_APPLICATION = 'opop.asgi.application'
-
+ASGI_APPLICATION = "opop.asgi.application"
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -176,4 +178,3 @@ CORS_ORIGIN_WHITELIST = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
-
