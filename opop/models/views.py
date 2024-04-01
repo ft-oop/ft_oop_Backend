@@ -114,40 +114,40 @@ def get_my_page(request):
 
 @api_view(['GET'])
 def enter_dual_room(request, room_id):
-    user_name = request.GET.get('userName')
+    user_id = get_user_info_from_token(request)
     password = request.GET.get('password')
     service = DualGameRoomSerializer()
-    data = service.enter_dual_room(user_name, room_id, password)
+    data = service.enter_dual_room(user_id, room_id, password)
 
     return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['GET'])
 def enter_tournament_room(request, tournament_id):
+    user_id = get_user_info_from_token(request)
     nick_name = request.GET.get('nickName')
-    user_name = request.GET.get('userName')
     password = request.GET.get('password')
 
     service = TournamentRoomSerializer()
-    data = service.enter_tournament_room(nick_name, user_name, password, tournament_id)
+    data = service.enter_tournament_room(nick_name, user_id, password, tournament_id)
 
     return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['POST'])
 def create_game(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
         room_name = data['roomName']
         game_type = data['gameType']
-        room_limit = data['roomLimit']
+        room_limit = data['roomLimits']
         password = data['password']
-        user_name = data['userName']
     except KeyError:
         return JsonResponse({'message': 'Bad Request'}, status=400)
     service = GameRoomSerializer()
     try:
-        response = service.create_game_room(user_name, room_name, game_type, room_limit, password)
+        response = service.create_game_room(user_id, room_name, game_type, room_limit, password)
     except ValidationError as e:
         return JsonResponse(e.detail, status=400)
     return JsonResponse(response, safe=False, status=200)
@@ -155,9 +155,9 @@ def create_game(request):
 
 @api_view(['POST'])
 def exit_game_room(request, room_id):
-    user_name = request.GET.get('userName')
+    user_id = get_user_info_from_token(request)
     service = GameRoomSerializer()
-    service.exit_game_room(user_name, room_id)
+    service.exit_game_room(user_id, room_id)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -190,15 +190,15 @@ def edit_my_page(request):
 
 @api_view(['POST'])
 def add_friend(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
         friend = data['friend']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
 
     service = FriendSerializer()
-    service.add_friend(user_name, friend)
+    service.add_friend(user_id, friend)
     return JsonResponse('OK', safe=False, status=200)
 
 

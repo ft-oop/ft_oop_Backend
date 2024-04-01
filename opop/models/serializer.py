@@ -19,25 +19,25 @@ class GameRoomSerializer(serializers.ModelSerializer):
         model = GameRoom
 
     @transaction.atomic
-    def create_game_room(self, user_name, room_name, game_type, room_limit, password):
+    def create_game_room(self, user_id, room_name, game_type, room_limit, password):
         if game_type == 'TOURNAMENT':
             type_integer = 1
         elif game_type == 'DUAL':
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
-                        host=user.get_user_name())
+        user = get_object_or_404(UserProfile, id=user_id)
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=type_integer, password=password,
+                        host=user.get_nick_name())
         user.game_room = game
         game.save()
         user.save()
         return {'game_type': game_type, 'room_id': game.get_room_id()}
 
     @transaction.atomic
-    def exit_game_room(self, user_name, room_id):
+    def exit_game_room(self, user_id, room_id):
         game = get_object_or_404(GameRoom, id=room_id)
-        user = UserProfile.objects.get(user_name=user_name, game_room=game)
+        user = UserProfile.objects.get(id=user_id, game_room=game)
         users_in_game = UserProfile.objects.filter(game_room=game)
 
         if game.get_host() == user.get_user_name():
@@ -252,8 +252,8 @@ class FriendSerializer(serializers.ModelSerializer):
         return {'user_name': user.user_name, 'picture': user.picture}
 
     @transaction.atomic
-    def add_friend(self, user_name, friend_name):
-        user = get_object_or_404(UserProfile, user_name=user_name)
+    def add_friend(self, user_id, friend_name):
+        user = get_object_or_404(UserProfile, id=user_id)
         friend = get_object_or_404(UserProfile, user_name=friend_name)
         if not FriendShip.objects.filter(owner=user, friend=friend).exists():
             friend_ship = FriendShip(owner=user, friend=friend)
@@ -337,8 +337,8 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         return host_picture
 
     @transaction.atomic
-    def enter_dual_room(self, user_name, room_id, password):
-        user = get_object_or_404(UserProfile, user_name=user_name)
+    def enter_dual_room(self, user_id, room_id, password):
+        user = get_object_or_404(UserProfile, id=user_id)
         game_room = get_object_or_404(GameRoom, id=room_id)
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
@@ -375,7 +375,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         guest_list = [{'nic_name': user.get_nick_name(), 'picture': user.get_picture()} for user in users]
         return guest_list
 
-    def enter_tournament_room(self, nick_name, user_name, password, room_id):
+    def enter_tournament_room(self, nick_name, user_id, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
         users_in_game = UserProfile.objects.filter(game_room=game_room)
         if game_room.room_type != 1:
@@ -384,7 +384,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
-        user = get_object_or_404(UserProfile, username=user_name)
+        user = get_object_or_404(UserProfile, id=user_id)
         user.nick_name = nick_name
         user.game_room = game_room
 
