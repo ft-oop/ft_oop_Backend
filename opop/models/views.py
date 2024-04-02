@@ -144,7 +144,9 @@ def create_game(request):
         room_limit = data['roomLimits']
         password = data['password']
     except KeyError:
-        return JsonResponse({'message': 'Bad Request'}, status=400)
+        return JsonResponse({
+            'message': 'Bad Request'
+        }, status=400)
     service = GameRoomSerializer()
     try:
         response = service.create_game_room(user_id, room_name, game_type, room_limit, password)
