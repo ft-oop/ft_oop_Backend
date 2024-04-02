@@ -1,5 +1,6 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+# from .models.models import GameRoom
 import sys
 
 online_users = set()
@@ -177,9 +178,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("received message: " + text_data)
         try:
             data = json.loads(text_data)
-            print(data)
-            await self.send(text_data=json.dumps({
-                'message': data['date'],
-            }))
+            if data['message'] == 'getRoomList':
+                room_list = self.get_room_list()
+
+                await self.send(text_data=json.dumps({
+                    'roomList': room_list
+                }))
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
+
+    def get_room_list(self):
+        from .models.models import GameRoom
+        room_list = []
+        game_rooms = GameRoom.objects.all()
+        for room in game_rooms:
+            room_info = {
+                'id': room.get_room_id(),
+                'name': room.get_room_name(),
+                'type': room.get_room_type(),
+                'limits': room.get_limits(),
+                'password': room.get_pass_word(),
+                'host': room.get_host(),
+                'users': room.get_user()
+            }
+            print('room   !!!!! name>>>>>' + room_info['name'])
+            room_list.append(room_info)
+        return room_list
