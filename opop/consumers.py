@@ -1,6 +1,7 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 import sys
+
 online_users = set()
 
 
@@ -173,11 +174,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def receive(self, text_data):
+        print("received message: " + text_data)
         try:
             data = json.loads(text_data)
-            await self.send(text_data=json.dumps({'message': data['date']}))
+            print(data)
+            await self.send(text_data=json.dumps({
+                'message': data['date'],
+            }))
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
-        
-
-        
