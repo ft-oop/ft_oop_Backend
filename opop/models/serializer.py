@@ -27,8 +27,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError('Invalid game type')
         user = get_object_or_404(UserProfile, id=user_id)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=type_integer, password=password,
-                        host=user.get_nick_name())
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
+                        host=user.user.name)
         user.game_room = game
         game.save()
         user.save()

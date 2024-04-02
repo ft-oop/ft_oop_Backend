@@ -1,6 +1,6 @@
 import json
-from channels.generic.websocket import WebsocketConsumer
-
+from channels.generic.websocket import AsyncWebsocketConsumer
+import sys
 online_users = set()
 
 
@@ -163,11 +163,21 @@ online_users = set()
 #         }))
 
 
-class ChatConsumer(WebsocketConsumer):
-    def connect(self):
-        self.accept()
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
 
-        self.send(text_data=json.dumps({
+        await self.send(text_data=json.dumps({
             'type': 'connection_established',
             'message': 'You are now connected!'
         }))
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            await self.send(text_data=json.dumps({'message': data['date']}))
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'message': 'fail'}))
+        
+
+        

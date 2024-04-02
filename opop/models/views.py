@@ -183,8 +183,11 @@ def edit_my_page(request):
         picture = data['picture']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    servie = UserProfileSerializer()
-    servie.update_user_info(user_id, new_name, picture)
+    service = UserProfileSerializer()
+    try:
+        service.update_user_info(user_id, new_name, picture)
+    except ValidationError as e:
+        return JsonResponse({'error': str(e)}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -209,7 +212,7 @@ def delete_friend(request):
         data = json.loads(request.body)
         friend = data['friendName']
     except KeyError:
-        return JsonResponse({'error': 'Bad Request'}, status=400)
+        return JsonResponse({'error': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
     service = FriendSerializer()
     service.delete_friend(user_id, friend)
     return JsonResponse('OK', safe=False, status=200)
