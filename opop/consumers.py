@@ -166,7 +166,6 @@ online_users = set()
 #             'message': message
 #         }))
 
-@d
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -213,6 +212,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room_list.append(room_info)
         return room_list
     
-    @sync_to_async
-    def get_friend_on_line(self):
+    # @sync_to_async
+    # def get_friend_on_line(self):
         
