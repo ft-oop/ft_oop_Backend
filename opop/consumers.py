@@ -1,7 +1,8 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
+from asgiref.sync import sync_to_async
+from rest_framework_simplejwt.tokens import AccessToken
 import sys
 from .models.models import UserProfile
 from .models.models import GameRoom
@@ -165,17 +166,44 @@ online_users = set()
 #         await self.send(text_data=json.dumps({
 #             'message': message
 #         }))
+@database_sync_to_async
+def get_user_info_from_token(self, jwt):
+    token = AccessToken(jwt)
+    user_id = token['user_id']
+    user = UserProfile.objects.get(id=user_id)
 
+    return user
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
+        
+        headers = dict(self.scope['headers'])
+        jwt = headers.get(b'authorization').split('Bearer ')[1] if b'authorization' in headers else ''
+    
+        if jwt == '':
+            await self.send(text_data=json.dumps({
+                'message': 'No jwt Token'
+            }))
+            await self.disconnect()
+        else :
+            user = await get_user_info_from_token(jwt)
+            online_users.add(user)
+
+            await self.send(text_data=json.dumps({
+                'type': 'connection_established',
+                'message': 'You are now connected!'
+            }))
+
+    async def disconnect(self): 
+        # header = dict(self.scope['headers'])
+        # jwt = header.get(b'authorization').split('Bearer ')[1]
+        # user = await get_user_info_from_token(jwt)
+        # online_users.delete(user)
 
         await self.send(text_data=json.dumps({
-            'type': 'connection_established',
-            'message': 'You are now connected!'
+            'message': 'You are now disconnected!'
         }))
-
     async def receive(self, text_data):
         print("received message: " + text_data)
         try:
@@ -214,4 +242,3 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     # @sync_to_async
     # def get_friend_on_line(self):
-        

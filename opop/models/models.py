@@ -63,7 +63,7 @@ class UserProfile(models.Model):
     # User 정보에서 이동
     picture = models.TextField()
     is_registered = models.BooleanField(default=False)
-    on_line = models.BooleanField(default=False)
+    # on_line = models.BooleanField(default=False)
 
     def get_picture(self):
         return self.picture
