@@ -4,12 +4,12 @@ import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'opop.settings')
 
 from django.core.asgi import get_asgi_application
+# Django 설정을 로드합니다.
+django_asgi_app = get_asgi_application()
+
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 import opop.routing
-
-# Django 설정을 로드합니다.
-django_asgi_app = get_asgi_application()
 
 # ASGI 프로토콜에 따라 요청을 처리하는 핸들러를 설정합니다.
 application = ProtocolTypeRouter({

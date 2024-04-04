@@ -1,8 +1,10 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-# from .models.models import GameRoom
+from asgiref.sync import sync_to_async
+from channels.db import database_sync_to_async
 import sys
-
+from .models.models import UserProfile
+from .models.models import GameRoom
 online_users = set()
 
 
@@ -164,6 +166,7 @@ online_users = set()
 #             'message': message
 #         }))
 
+@d
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -178,17 +181,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("received message: " + text_data)
         try:
             data = json.loads(text_data)
+            
             if data['message'] == 'getRoomList':
-                room_list = self.get_room_list()
+                room_list = await self.get_room_list()
 
                 await self.send(text_data=json.dumps({
-                    'roomList': room_list
+                    'room_list' : room_list
                 }))
+            if data['message'] == 'friendOnLine':
+                friend_list = await self.get_friend_on_line()
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
+    @sync_to_async
     def get_room_list(self):
-        from .models.models import GameRoom
         room_list = []
         game_rooms = GameRoom.objects.all()
         for room in game_rooms:
@@ -199,8 +205,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'limits': room.get_limits(),
                 'password': room.get_pass_word(),
                 'host': room.get_host(),
-                'users': room.get_user()
+                'users': room.get_user(),
+                'participant' : room.get_room_person()
+                #방의 상태값도 주어야할수도 있다
             }
             print('room   !!!!! name>>>>>' + room_info['name'])
             room_list.append(room_info)
         return room_list
+    
+    @sync_to_async
+    def get_friend_on_line(self):
+        

@@ -32,7 +32,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
             room_type=type_integer, 
             limits=room_limit, 
             password=password,
-            host=user.nick_name
+            host=user.user.username
                         )
         user.game_room = game
         game.save()
@@ -45,7 +45,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
         user = UserProfile.objects.get(id=user_id, game_room=game)
         users_in_game = UserProfile.objects.filter(game_room=game)
 
-        if game.get_host() == user.get_user_name():
+        if game.get_host() == user.user.username:
             for guest in users_in_game:
                 guest.game_room = None
                 guest.save()
