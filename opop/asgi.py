@@ -9,14 +9,23 @@ django_asgi_app = get_asgi_application()
 
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
+from .jwt_middleware import JWTAuthMiddleware
 import opop.routing
 
 # ASGI 프로토콜에 따라 요청을 처리하는 핸들러를 설정합니다.
 application = ProtocolTypeRouter({
+    # 'http': django_asgi_app,
+    # 'websocket': AuthMiddlewareStack(
+    #     URLRouter(
+    #         opop.routing.websocket_urlpatterns
+    #     )
+    # ),
     'http': django_asgi_app,
     'websocket': AuthMiddlewareStack(
-        URLRouter(
-            opop.routing.websocket_urlpatterns
+        JWTAuthMiddleware(
+            URLRouter(
+                opop.routing.websocket_urlpatterns
+                )
         )
     ),
 })

@@ -165,7 +165,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CLIENT_ID = 'u-s4t2ud-80593f2ca92d09f7d42166593b99cc335953a89bc775c0596ac93a9eb3bc4c44'
-CLIENT_SECRET = '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'
+CLIENT_SECRET = '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'
 LOGIN_REDIRECT_URL = 'http://localhost/login'
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'

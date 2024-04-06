@@ -32,8 +32,15 @@ def login(request):
     user = serializer.register_user(user_info=user_info)
 
     if not user.profile.is_registered:
-        return JsonResponse(generate_token(user), safe=False, status=status.HTTP_201_CREATED)
-    return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
+        token = generate_token(user)
+        response = JsonResponse(token, safe=False, status=status.HTTP_201_CREATED)
+        response.set_cookie('jwt', token['access'])
+        return response
+    token = generate_token(user)
+    response = JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
+    response.set_cookie('jwt', token['access'])
+    return response
+    # return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -43,7 +50,10 @@ def reissue_access_token(request):
     serializer = TokenRefreshSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
-    return JsonResponse(data, status=status.HTTP_200_OK)
+    response = JsonResponse(data, status=status.HTTP_200_OK)
+    response.set_cookie('jwt', data['access'])
+    return response
+    # return JsonResponse(data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -59,7 +69,11 @@ def two_factor(request):
     user_id = get_user_info_from_token(request)
     code = request.data['code']
     user = verify_two_factor_code(code, user_id)
-    return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
+    token = generate_token(user)
+    response = JsonResponse(token, status=status.HTTP_200_OK)
+    response.set_cookie('jwt', token['access'])
+    return response
+    # return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -244,3 +258,9 @@ def remove_friend_in_ban_list(request):
     service = BlockRelationSerializer()
     service.remove_friend_in_ban_list(user_id, target)
     return JsonResponse('OK', safe=False, status=200)
+
+@api_view(['GET'])
+def get_chat_history(request):
+    user_id = get_user_info_from_token(request)
+    receiver_name = request.GET.get('receiver')
+    

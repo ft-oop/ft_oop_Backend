@@ -4,8 +4,8 @@ from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 import sys
-from .models.models import UserProfile
-from .models.models import GameRoom
+from .models.models import UserProfile, GameRoom
+from django.contrib.auth.models import User
 online_users = set()
 
 
@@ -167,7 +167,7 @@ online_users = set()
 #             'message': message
 #         }))
 @database_sync_to_async
-def get_user_info_from_token(self, jwt):
+def get_user_info_from_token(jwt):
     token = AccessToken(jwt)
     user_id = token['user_id']
     user = UserProfile.objects.get(id=user_id)
@@ -177,68 +177,80 @@ def get_user_info_from_token(self, jwt):
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
-        
-        headers = dict(self.scope['headers'])
-        jwt = headers.get(b'authorization').split('Bearer ')[1] if b'authorization' in headers else ''
-    
-        if jwt == '':
-            await self.send(text_data=json.dumps({
-                'message': 'No jwt Token'
-            }))
-            await self.disconnect()
-        else :
-            user = await get_user_info_from_token(jwt)
-            online_users.add(user)
-
-            await self.send(text_data=json.dumps({
-                'type': 'connection_established',
-                'message': 'You are now connected!'
-            }))
-
-    async def disconnect(self): 
-        # header = dict(self.scope['headers'])
-        # jwt = header.get(b'authorization').split('Bearer ')[1]
-        # user = await get_user_info_from_token(jwt)
-        # online_users.delete(user)
-
+        user = self.scope['user']
+        online_users.add(self.scope['user']) 
+        print(len(online_users))
         await self.send(text_data=json.dumps({
-            'message': 'You are now disconnected!'
+            'type': 'connection_established',
+            'message': 'You are now connected!',
+            'userLine' : len(online_users)
         }))
+
+    async def disconnect(self, close_code):
+        print("logout.......")
+        online_users.remove(self.scope['user'])
+    
     async def receive(self, text_data):
         print("received message: " + text_data)
         try:
             data = json.loads(text_data)
             
+            if data['message'] == 'ping':
+                print(data['message'])
+                await self.send(text_data=json.dumps({'message': 'pong'}))
+
             if data['message'] == 'getRoomList':
                 room_list = await self.get_room_list()
 
                 await self.send(text_data=json.dumps({
                     'room_list' : room_list
                 }))
-            if data['message'] == 'friendOnLine':
-                friend_list = await self.get_friend_on_line()
+            
+            if data['message'] == 'mypage':
+                friend_list = await self.get_friend_on_line(data['friends'])
+
+                await self.send(text_data=json.dumps(friend_list))
+            
+            if data['message'] == 'chat':
+                user = self.scope['user']
+                receiver_name = data['receiver']
+                
+            # if data['message'] == 'login':
+            #     jwt = data['token']
+            #     user = await get_user_info_from_token(jwt)
+            #     online_users.add(user)
+            #     print(len(online_users))
+            #     await self.send(text_data=json.dumps({
+            #         'message': 'user login successful!',
+            #         'userLen' : len(online_users)
+            #     }))
+            # if data['message'] == 'logout':
+            #     jwt = data['token']
+            #     user = await get_user_info_from_token(jwt)
+            #     online_users.remove(user)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
     @sync_to_async
     def get_room_list(self):
-        room_list = []
-        game_rooms = GameRoom.objects.all()
-        for room in game_rooms:
-            room_info = {
-                'id': room.get_room_id(),
-                'name': room.get_room_name(),
-                'type': room.get_room_type(),
-                'limits': room.get_limits(),
-                'password': room.get_pass_word(),
-                'host': room.get_host(),
-                'users': room.get_user(),
-                'participant' : room.get_room_person()
-                #방의 상태값도 주어야할수도 있다
-            }
-            print('room   !!!!! name>>>>>' + room_info['name'])
-            room_list.append(room_info)
-        return room_list
+        return [{
+        'id': room.get_room_id(),
+        'name': room.get_room_name(),
+        'type': room.get_room_type(),
+        'limits': room.get_limits(),
+        'password': room.get_pass_word(),
+        'host': room.get_host(),
+        'users': room.get_user(),
+        'participant': room.get_room_person()
+    } for room in GameRoom.objects.all()]
     
-    # @sync_to_async
-    # def get_friend_on_line(self):
+    @sync_to_async
+    def get_friend_on_line(self, friends):
+        friends_status = {}
+        for friend in friends:
+            name = friend.get('user_name')
+            user = User.objects.get(username=name).profile
+            status = user in online_users
+            friends_status[name] = status
+        
+        return friends_status

@@ -21,6 +21,7 @@ urlpatterns = [
     path('friend/delete', views.delete_friend),
     path('friend/ban-list/add', views.add_friend_in_ban_list),
     path('friend/ban-list/delete', views.remove_friend_in_ban_list),
+    path('mypage/chat', views.get_chat_history),
 
     # 로그인 로직 
     path('oauth/login/', views.login),
