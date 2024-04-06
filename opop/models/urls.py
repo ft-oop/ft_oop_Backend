@@ -12,6 +12,7 @@ urlpatterns = [
     path('users/info/', views.get_user_info),
     path('mypage/', views.get_my_page),
     path('mypage/editor', views.edit_my_page),
+    path('mypage/friend', views.add_friend),
     path('game/dual/<int:room_id>', views.enter_dual_room),
     path('game/tournament/<int:room_id>', views.enter_tournament_room),
     path('game', views.create_game),
