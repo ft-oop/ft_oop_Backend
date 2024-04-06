@@ -214,7 +214,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if data['message'] == 'chat':
                 user = self.scope['user']
                 receiver = data['receiver']
-                message = data['content']
+                message = data['input']
 
                 user_profile = get_object_or_404(User, username=user).profile
                 receiver_profile = get_object_or_404(User, username=receiver).profile
@@ -227,7 +227,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({
                     'sender': user,
                     'receiver': receiver,
-                    'content': message
+                    'input': message
                 }))
                 
             # if data['message'] == 'login':
