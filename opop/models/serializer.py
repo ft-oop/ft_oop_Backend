@@ -26,15 +26,9 @@ class GameRoomSerializer(serializers.ModelSerializer):
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-<<<<<<< HEAD
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
-                        host=user.get_user_name())
-=======
         user = get_object_or_404(User, id=user_id)
         game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
                         host=user.get_username())
->>>>>>> e05f523b8a4028006effa728881af3e9d2197dbe
         user.game_room = game
         game.save()
         user.save()
@@ -257,19 +251,12 @@ class FriendSerializer(serializers.ModelSerializer):
         return {'user_name': user.user_name, 'picture': user.picture}
 
     @transaction.atomic
-<<<<<<< HEAD
-    def add_friend(self, user_name, friend_name):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        friend = get_object_or_404(UserProfile, user_name=friend_name)
-        if not FriendShip.objects.filter(owner=user, friend=friend).exists():
-            friend_ship = FriendShip(owner=user, friend=friend)
-=======
+
     def add_friend(self, user_id, friend_name):
         user_profile = get_object_or_404(User, id=user_id).profile
         friend = get_object_or_404(User, username=friend_name).profile
         if not FriendShip.objects.filter(owner=user_profile, friend=friend).exists():
             friend_ship = FriendShip(owner=user_profile, friend=friend)
->>>>>>> e05f523b8a4028006effa728881af3e9d2197dbe
             friend_ship.save()
         else:
             serializers.ValidationError("Friendship already exists.")
@@ -408,17 +395,6 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
 
 class MessageSerializer(serializers.ModelSerializer):
-<<<<<<< HEAD
-    sender_name = serializers.SerializerMethodField()
-    sender_picture = serializers.SerializerMethodField()
-    sender_history = serializers.SerializerMethodField()
-    receiver_history = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Message
-        fields = ['sender_name', 'sender_picture', 'sender_history', 'receiver_history', ]
-    def get
-=======
     # sender_name = serializers.SerializerMethodField()
     # sender_picture = serializers.SerializerMethodField()
     # sender_history = serializers.SerializerMethodField()
@@ -430,7 +406,6 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ['sender', 'receiver', 'message', 'timestamp']
->>>>>>> e05f523b8a4028006effa728881af3e9d2197dbe
 
 def get_user_info_from_token(request):
     header = request.META.get("HTTP_AUTHORIZATION")
