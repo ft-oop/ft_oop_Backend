@@ -213,7 +213,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             if data['message'] == 'chat':
                 user = self.scope['user']
-                receiver_name = data['receiver']
+                receiver = data['receiver']
+                message = data['content']
+
+                user_profile = get_object_or_404(User, username=user).profile
+                receiver_profile = get_object_or_404(User, username=receiver).profile
+
+                message_instance = Message.objects.create(
+                    sender=user_profile,
+                    receiver=receiver_profile,
+                    message=message
+                )
+                await self.send(text_data=json.dumps({
+                    'sender': user,
+                    'receiver': receiver,
+                    'content': message
+                }))
                 
             # if data['message'] == 'login':
             #     jwt = data['token']
