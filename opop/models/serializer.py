@@ -407,6 +407,11 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ['sender', 'receiver', 'message', 'timestamp']
+    def get_chat_contents(self, sender_name, receiver_name):
+        sender_profile = get_object_or_404(User, username=sender_name)
+        receiver_profile = get_object_or_404(User, username=receiver_name)
+
+
 
 def get_user_info_from_token(request):
     header = request.META.get("HTTP_AUTHORIZATION")

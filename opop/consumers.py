@@ -4,8 +4,9 @@ from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 import sys
-from .models.models import UserProfile, GameRoom
+from .models.models import UserProfile, GameRoom, Message
 from django.contrib.auth.models import User
+from django.shortcuts import get_object_or_404
 online_users = set()
 
 
@@ -170,9 +171,9 @@ online_users = set()
 def get_user_info_from_token(jwt):
     token = AccessToken(jwt)
     user_id = token['user_id']
-    user = UserProfile.objects.get(id=user_id)
+    user = User.objects.get(id=user_id)
 
-    return user
+    return user.profile
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -194,6 +195,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("received message: " + text_data)
         try:
             data = json.loads(text_data)
+            print('type is..... ' + data['message'])
             
             if data['message'] == 'ping':
                 print(data['message'])
@@ -212,20 +214,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps(friend_list))
             
             if data['message'] == 'chat':
-                user = self.scope['user']
+                print("message is chat..!!" + data['receiver'])
+                
+                sender = data['sender']
                 receiver = data['receiver']
                 message = data['input']
 
-                user_profile = get_object_or_404(User, username=user).profile
-                receiver_profile = get_object_or_404(User, username=receiver).profile
-
-                message_instance = Message.objects.create(
-                    sender=user_profile,
-                    receiver=receiver_profile,
-                    message=message
-                )
+                sender_profile = await self.get_user_profile(sender)
+                receiver_profile = await self.get_user_profile(receiver)
+                await self.save_message(sender_profile, receiver_profile, message)
+               
                 await self.send(text_data=json.dumps({
-                    'sender': user,
+                    'sender': sender,
                     'receiver': receiver,
                     'input': message
                 }))
@@ -269,3 +269,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             friends_status[name] = status
         
         return friends_status
+    
+    @database_sync_to_async
+    def get_user_profile(self, username):
+        return User.objects.get(username=username).profile
+
+    @database_sync_to_async
+    def save_message(self, sender_profile, receiver_profile, message):
+         message_instance = Message.objects.create(
+                    sender=sender_profile,
+                    receiver=receiver_profile,
+                    message=message
+                )
