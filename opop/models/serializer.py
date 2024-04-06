@@ -19,19 +19,20 @@ class GameRoomSerializer(serializers.ModelSerializer):
         model = GameRoom
 
     @transaction.atomic
-    def create_game_room(self, user_name, room_name, game_type, room_limit, password):
+    def create_game_room(self, id, room_name, game_type, room_limit, password):
         if game_type == 'TOURNAMENT':
             type_integer = 1
         elif game_type == 'DUAL':
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-        user = get_object_or_404(User, id=user_id)
+        user = get_object_or_404(User, id=id)
+        user_profile = user.profile
         game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
-                        host=user.get_username())
-        user.game_room = game
+                        host=user.username)
+        user_profile.game_room = game
         game.save()
-        user.save()
+        user_profile.save()
         return {'game_type': game_type, 'room_id': game.get_room_id()}
 
     @transaction.atomic
