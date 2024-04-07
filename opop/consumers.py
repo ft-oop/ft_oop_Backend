@@ -26,11 +26,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user1, user2 = users[0], users[1]
         room = await self.create_random_match_room(user1)
 
+        target_users = [
+        {'name': user1.user.username, 'photo': user1.picture},
+        {'name': user2.user.username, 'photo': user2.picture}
+    ]
+
         await self.send(text_data=json.dumps({
                 'type': 'enter_room',
                 'room_id': room.id,
                 # 'host': user1.user.username,
-                'target': user1.user.username + ',' + user2.user.username
+                'target': target_users
             }))
         
         random_match_users.clear()
@@ -97,11 +102,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 random_match_users.add(user_profile)
                 user_name = data['name']
                 if (len(random_match_users) == 2):
-                    print("create start...")
                     await self.create_room_and_enter_users()
+                else:
+                    await self.send(text_data=json.dumps({
+                        'message': user_name + 'is inserted!'
+                    }))
+
+            if data['message'] == 'random_match_cancel':
+                user_profile = self.scope['user']
+
+                random_match_users.remove(user_profile)
 
                 await self.send(text_data=json.dumps({
-                    'message': user_name + 'is inserted!'
+                    'message': 'match canceled!'
                 }))
 
                 
