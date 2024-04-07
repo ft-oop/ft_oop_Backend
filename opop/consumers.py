@@ -8,165 +8,9 @@ from .models.models import UserProfile, GameRoom, Message
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 online_users = set()
+random_match_users = set()
 
 
-# Unused class
-# class GameConsumer(AsyncWebsocketConsumer):
-#     async def connect(self):
-#         self.user = self.scope["user"]
-#         global online_users
-#         online_users.add(self.user.id)
-#         message = {"type": "user_status", "user_id": self.user.id, "status": "online"}
-#         await self.send_to_mypage(message)
-#         # await self.connect_default()
-
-#         await self.accept()
-
-#     '''
-#     async def connect_default(self):
-#         self.group_name = 'default'
-
-#         await self.channel_layer.group_add(
-#             self.group_name,
-#             self.channel_name
-#         )
-#     '''
-
-#     async def connect_room_id(self, room_id):
-#         await self.disconnect_room()
-#         self.group_name = f'game/{room_id}'
-#         await self.channel_layer.group_add(
-#             self.group_name,
-#             self.channel_name
-#         )
-
-#     async def connect_room_list(self):
-#         await self.disconnect_room()
-#         self.group_name = f'room_list'
-#         await self.channel_layer.group_add(
-#             self.group_name,
-#             self.channel_name
-#         )
-
-#     async def connect_mypage(self):
-#         await self.disconnect_room()
-#         self.group_name = f'mypage'
-#         await self.channel_layer.group_add(
-#             self.group_name,
-#             self.channel_name
-#         )
-#         global online_users
-#         await self.send(text_data=json.dumps({
-#             'message': online_users
-#         }))
-
-#     async def disconnect_room(self):
-#         await self.channel_layer.group_discard(
-#             self.group_name,
-#             self.channel_name
-#         )
-
-#     async def disconnect(self, close_code):
-#         global online_users
-#         online_users.remove(self.user.id)
-#         message = {"type": "user_status", "user_id": self.user.id, "status": "offline"}
-#         await self.send_to_mypage(message)
-
-#         await self.channel_layer.group_discard(
-#             self.group_name,
-#             self.channel_name
-#         )
-
-#     # Receive message from WebSocket
-#     async def receive(self, text_data):
-#         text_data_json = json.loads(text_data)
-#         message = text_data_json['message']
-
-#         # Send message to room group
-#         await self.channel_layer.group_send(
-#             self.group_name,
-#             {
-#                 'type': 'broadcast_message',
-#                 'message': message
-#             }
-#         )
-
-#     async def send_to_mypage(self, message):
-#         await self.channel_layer.group_send(
-#             'mypage',
-#             {
-#                 'type': 'broadcast_message',
-#                 'message': message
-#             }
-#         )
-
-#     async def send_to_room_list(self, message):
-#         await self.channel_layer.group_send(
-#             'room_list',
-#             {
-#                 'type': 'broadcast_message',
-#                 'message': message
-#             }
-#         )
-
-#     # Receive message from room group
-#     async def broadcast_message(self, event):
-#         message = event['message']
-
-#         # Send message to WebSocket
-#         await self.send(text_data=json.dumps({
-#             'message': message
-#         }))
-
-
-# class OopConsumer(AsyncWebsocketConsumer):
-#     async def connect(self):
-#         self.user = self.scope["user"]
-#         global online_users
-#         online_users.add(self.user.id)
-#         message = {"type": "user_status", "user_id": self.user.id, "status": "online"}
-#         await self.channel_layer.group_add(
-#             "online_users",
-#             self.channel_name
-#         )
-#         await self.send(message)
-#         await self.accept()
-
-#     async def disconnect(self, close_code):
-#         global online_users
-#         online_users.remove(self.user.id)
-#         message = {"type": "user_status", "user_id": self.user.id, "status": "offline"}
-#         await self.send(message)
-
-#         # Leave room group
-#         await self.channel_layer.group_discard(
-#             "online_users",
-#             self.channel_name
-#         )
-
-#     # 클라이언트에서 서버로 메세지를 보낼 때 사용
-#     # 클라이언트로부터 메세지를 받았을 때 호출되는 함수
-#     async def receive(self, text_data):
-#         text_data_json = json.loads(text_data)
-#         message = text_data_json['message']
-
-#         # Send message to room group
-#         await self.channel_layer.group_send(
-#             "online_users",
-#             {
-#                 'type': 'broadcast_message',
-#                 'message': message
-#             }
-#         )
-
-#     # 서버가 특정 그룹의 클라이언트에게 메세지를 보낼 때 사용하는 함수
-#     async def broadcast_message(self, event):
-#         message = event['message']
-
-#         # Send message to WebSocket
-#         await self.send(text_data=json.dumps({
-#             'message': message
-#         }))
 @database_sync_to_async
 def get_user_info_from_token(jwt):
     token = AccessToken(jwt)
@@ -176,6 +20,21 @@ def get_user_info_from_token(jwt):
     return user.profile
 
 class ChatConsumer(AsyncWebsocketConsumer):
+
+    async def create_room_and_enter_users(self):
+        users = list(random_match_users)
+        user1, user2 = users[0], users[1]
+        room = await self.create_random_match_room(user1)
+
+        await self.send(text_data=json.dumps({
+                'type': 'enter_room',
+                'room_id': room.id,
+                # 'host': user1.user.username,
+                'target': user1.user.username + ',' + user2.user.username
+            }))
+        
+        random_match_users.clear()
+
     async def connect(self):
         await self.accept()
         user = self.scope['user']
@@ -193,6 +52,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def receive(self, text_data):
         print("received message: " + text_data)
+        if (len(random_match_users) == 2):
+            await self.create_room_and_enter_users()
+            # self.enter_room
         try:
             data = json.loads(text_data)
             print('type is..... ' + data['message'])
@@ -229,6 +91,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'receiver': receiver,
                     'input': message
                 }))
+            
+            if data['message'] == 'random_match':
+                user_profile = self.scope['user']
+                random_match_users.add(user_profile)
+                user_name = data['name']
+                if (len(random_match_users) == 2):
+                    print("create start...")
+                    await self.create_room_and_enter_users()
+
+                await self.send(text_data=json.dumps({
+                    'message': user_name + 'is inserted!'
+                }))
+
                 
             # if data['message'] == 'login':
             #     jwt = data['token']
@@ -280,4 +155,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     sender=sender_profile,
                     receiver=receiver_profile,
                     message=message
+                )
+    
+    @database_sync_to_async
+    def create_random_match_room(self, user1):
+        return GameRoom.objects.create(
+                    room_name="랜덤 매치 방",
+                    room_type=0,
+                    limits=2,
+                    password="",
+                    host=user1.user.username
                 )
