@@ -32,8 +32,15 @@ class JWTAuthMiddleware(BaseMiddleware):
 
     @database_sync_to_async
     def get_user_info_from_token(self, jwt):
-        token = AccessToken(jwt)
-        user_id = token['user_id']
-        user = User.objects.get(id=user_id)
+        try:
+            token = AccessToken(jwt)
+            user_id = token['user_id']
+            user = User.objects.get(id=user_id)
 
-        return user.profile
+            return user.profile
+        except User.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'User does not exist'
+
+            }, status=404)

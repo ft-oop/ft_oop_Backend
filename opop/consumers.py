@@ -1,6 +1,7 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 import sys
@@ -9,7 +10,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 online_users = set()
 random_match_users = set()
-
+user_channel_names = {}
 
 @database_sync_to_async
 def get_user_info_from_token(jwt):
@@ -25,26 +26,62 @@ class ChatConsumer(AsyncWebsocketConsumer):
         users = list(random_match_users)
         user1, user2 = users[0], users[1]
         room = await self.create_random_match_room(user1)
+        self.room_group_name = f'chat_{room.id}'
+
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            user_channel_names[user1.user.username]
+        )
+
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            user_channel_names[user2.user.username]
+        )
 
         target_users = [
-        {'name': user1.user.username, 'photo': user1.picture},
-        {'name': user2.user.username, 'photo': user2.picture}
-    ]
+            {'name': user1.user.username, 'photo': user1.picture},
+            {'name': user2.user.username, 'photo': user2.picture}
+        ]
 
-        await self.send(text_data=json.dumps({
-                'type': 'enter_room',
-                'room_id': room.id,
-                # 'host': user1.user.username,
-                'target': target_users
-            }))
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'message': json.dumps({
+                    'type': 'enter_room',
+                    'room_id': room.id,
+                    'target': target_users
+                })
+            }
+        )
+
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            user_channel_names[user1.user.username]
+        )
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            user_channel_names[user2.user.username]
+        )
         
         random_match_users.clear()
 
+    async def chat_message(self, event):  
+        message = event['message']
+
+        # Send message to WebSocket
+        await self.send(text_data=message)
+
     async def connect(self):
-        await self.accept()
         user = self.scope['user']
-        online_users.add(self.scope['user']) 
-        print(len(online_users))
+        user_channel_names[user.user.username] = self.channel_name
+        await self.accept()
+
+        online_users.add(user)
+        await self.channel_layer.group_add(
+            "online_users",
+            self.channel_name
+        )
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
             'message': 'You are now connected!',
@@ -52,11 +89,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def disconnect(self, close_code):
-        print("logout.......")
+        # if self.user.username in user_channel_names:
+        #     del user_channel_names[self.user.username]
         online_users.remove(self.scope['user'])
+
+        await self.channel_layer.group_discard(
+            "online_users",
+            self.channel_name
+        )
     
     async def receive(self, text_data):
-        print("received message: " + text_data)
         if (len(random_match_users) == 2):
             await self.create_room_and_enter_users()
             # self.enter_room
@@ -117,20 +159,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'message': 'match canceled!'
                 }))
 
-                
-            # if data['message'] == 'login':
-            #     jwt = data['token']
-            #     user = await get_user_info_from_token(jwt)
-            #     online_users.add(user)
-            #     print(len(online_users))
-            #     await self.send(text_data=json.dumps({
-            #         'message': 'user login successful!',
-            #         'userLen' : len(online_users)
-            #     }))
-            # if data['message'] == 'logout':
-            #     jwt = data['token']
-            #     user = await get_user_info_from_token(jwt)
-            #     online_users.remove(user)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
