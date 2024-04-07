@@ -1,6 +1,7 @@
 from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 from .models.models import UserProfile
+from django.contrib.auth.models import User
 from channels.middleware import BaseMiddleware
 from django.contrib.auth.models import AnonymousUser
 
@@ -33,6 +34,6 @@ class JWTAuthMiddleware(BaseMiddleware):
     def get_user_info_from_token(self, jwt):
         token = AccessToken(jwt)
         user_id = token['user_id']
-        user = UserProfile.objects.get(id=user_id)
+        user = User.objects.get(id=user_id)
 
-        return user
+        return user.profile
