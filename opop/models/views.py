@@ -274,7 +274,7 @@ def get_chat_history(request):
     serializer = MessageSerializer(message, many=True).data
 
     return JsonResponse(
-        [{'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : serializer}],
+        {'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : serializer},
         safe=False, status=200
         )
     
