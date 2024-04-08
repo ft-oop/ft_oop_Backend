@@ -266,12 +266,10 @@ def remove_friend_in_ban_list(request):
 
 @api_view(['GET'])
 def get_chat_history(request):
-    sender_name = request.GET.get('sender')
     receiver_name = request.GET.get('receiver')
-
+    sender_name = request.GET.get('sender')
     sender_profile = get_object_or_404(User, username=sender_name).profile
     receiver_profile = get_object_or_404(User, username=receiver_name).profile
-
     message = Message.objects.filter(sender=sender_profile, receiver=receiver_profile)
     serializer = MessageSerializer(message, many=True)
 
