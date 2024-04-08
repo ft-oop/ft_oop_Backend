@@ -341,19 +341,19 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         return host_picture
 
     @transaction.atomic
-    def enter_dual_room(self, user_name, room_id, password):
-        user = get_object_or_404(UserProfile, user_name=user_name)
+    def enter_dual_room(self, user_id, room_id, password):
+        user = get_object_or_404(User, id=user_id).profile
         game_room = get_object_or_404(GameRoom, id=room_id)
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
         if game_room.limits + 1 < game_room.limits:
             raise serializers.ValidationError('OverFlow limits')
-        if game_room.password != password:
+        if game_room.password != "" and game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
         user.game_room = game_room
         user.save()
-        host = get_object_or_404(UserProfile, user_name=game_room.get_host())
-        return {"hostPicture": host.picture()}
+        host = get_object_or_404(User, username=game_room.get_host()).profile
+        return {"hostPicture": host.picture}
 
 
 class TournamentRoomSerializer(serializers.ModelSerializer):
