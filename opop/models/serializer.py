@@ -162,6 +162,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update_user_info(self, user_id, user_name, picture):
         user = get_object_or_404(User, id=user_id)
+        if user.username == user_name:
+            raise serializers.ValidationError("Can not Change by same name.")
         if user_name and user_name != "":
             if not User.objects.filter(username=user_name).exists():
                 user.username = user_name

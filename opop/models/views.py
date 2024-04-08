@@ -199,12 +199,16 @@ def edit_my_page(request):
         new_name = data['newName']
         picture = data['picture']
     except KeyError:
-        return JsonResponse({'error': 'Bad Request'}, status=400)
+        return JsonResponse({'error': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
     service = UserProfileSerializer()
     try:
         service.update_user_info(user_id, new_name, picture)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
+        error_messages = [str(detail) for detail in e.detail][0]
+        if 'Can not Change by same name.' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 1001}, status=status.HTTP_400_BAD_REQUEST)
+        if 'This username is already in use.' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 1002}, status=status.HTTP_400_BAD_REQUEST)
     return JsonResponse('OK', safe=False, status=200)
 
 
