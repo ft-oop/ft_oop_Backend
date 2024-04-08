@@ -263,7 +263,7 @@ class FriendSerializer(serializers.ModelSerializer):
             friend_ship = FriendShip(owner=user_profile, friend=friend)
             friend_ship.save()
         else:
-            serializers.ValidationError("Friendship already exists.")
+            raise serializers.ValidationError("Friendship already exists.")
 
     @transaction.atomic
     def delete_friend(self, user_id, friend_name):
@@ -296,7 +296,7 @@ class BlockRelationSerializer(serializers.ModelSerializer):
             #     friend_ship = FriendShip.objects.get(owner=user, friend=target)
             #     friend_ship.delete()
         else:
-            serializers.ValidationError("Already blocked user.")
+            raise serializers.ValidationError("Already blocked user.")
 
     @transaction.atomic
     def remove_friend_in_ban_list(self, user_name, target):

@@ -68,12 +68,14 @@ def send_email(request):
 def two_factor(request):
     user_id = get_user_info_from_token(request)
     code = request.data['code']
-    user = verify_two_factor_code(code, user_id)
+    try:
+        user = verify_two_factor_code(code, user_id)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=403)
     token = generate_token(user)
     response = JsonResponse(token, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
     return response
-    # return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -132,7 +134,10 @@ def enter_dual_room(request, room_id):
     user_id = get_user_info_from_token(request)
     password = request.GET.get('password')
     service = DualGameRoomSerializer()
-    data = service.enter_dual_room(user_id, room_id, password)
+    try:
+        data = service.enter_dual_room(user_id, room_id, password)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=400)
 
     return JsonResponse(data, safe=False, status=200)
 
@@ -144,8 +149,12 @@ def enter_tournament_room(request, tournament_id):
     password = request.GET.get('password')
 
     service = TournamentRoomSerializer()
-    data = service.enter_tournament_room(nick_name, user_id, password, tournament_id)
 
+    try:
+        data = service.enter_tournament_room(nick_name, user_id, password, tournament_id)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=400)
+    
     return JsonResponse(data, safe=False, status=200)
 
 
@@ -187,7 +196,10 @@ def kick_user_in_game_room(request, room_id):
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = GameRoomSerializer()
-    service.kick_user_in_game_room(room_id, host_name, kick_user)
+    try:
+        service.kick_user_in_game_room(room_id, host_name, kick_user)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=404)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -222,7 +234,10 @@ def add_friend(request):
         return JsonResponse({'error': 'Bad Request'}, status=400)
 
     service = FriendSerializer()
-    service.add_friend(user_id, friend)
+    try:
+        service.add_friend(user_id, friend)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -248,7 +263,10 @@ def add_friend_in_ban_list(request):
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = BlockRelationSerializer()
-    service.add_friend_in_ban_list(user_id, target)
+    try:
+        service.add_friend_in_ban_list(user_id, target)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
