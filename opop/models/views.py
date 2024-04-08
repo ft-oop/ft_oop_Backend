@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-
+from operator import itemgetter
 from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, \
     DualGameRoomSerializer, \
     TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, MessageSerializer, get_user_info_by_api, \
@@ -270,11 +270,14 @@ def get_chat_history(request):
     sender_name = request.GET.get('sender')
     sender_profile = get_object_or_404(User, username=sender_name).profile
     receiver_profile = get_object_or_404(User, username=receiver_name).profile
-    message = Message.objects.filter(sender=sender_profile, receiver=receiver_profile)
-    serializer = MessageSerializer(message, many=True).data
+    
+    send_message = MessageSerializer(Message.objects.filter(sender=sender_profile, receiver=receiver_profile), many=True).data
+    receive_message = MessageSerializer(Message.objects.filter(sender=receiver_profile, receiver=sender_profile), many=True).data
+    message_list = send_message + receive_message
 
+    message_list = sorted(message_list, key=itemgetter('timestamp'))
     return JsonResponse(
-        {'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : serializer},
+        {'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : message_list},
         safe=False, status=200
         )
     
