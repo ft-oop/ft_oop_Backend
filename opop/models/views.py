@@ -271,7 +271,10 @@ def get_chat_history(request):
     sender_profile = get_object_or_404(User, username=sender_name).profile
     receiver_profile = get_object_or_404(User, username=receiver_name).profile
     message = Message.objects.filter(sender=sender_profile, receiver=receiver_profile)
-    serializer = MessageSerializer(message, many=True)
+    serializer = MessageSerializer(message, many=True).data
 
-    return JsonResponse(serializer.data, safe=False, status=200)
+    return JsonResponse(
+        [{'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : serializer}],
+        safe=False, status=200
+        )
     

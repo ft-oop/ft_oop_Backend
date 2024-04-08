@@ -401,27 +401,24 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField()
     receiver_name = serializers.SerializerMethodField()
-    sender_picture = serializers.SerializerMethodField()
-
-    # sender_history = serializers.SerializerMethodField()
-    # receiver_history = serializers.SerializerMethodField()
 
     # class Meta:
     #     model = Message
     #     fields = ['sender_name', 'sender_picture', 'sender_history', 'receiver_history' ]
     class Meta:
         model = Message
-        fields = ['sender_name', 'sender_picture', 'receiver_name', 'message', 'timestamp']
+        fields = ['sender_name', 'receiver_name', 'message', 'timestamp']
     
     def get_sender_name(self, obj):
         sender_name = obj.sender.user.username
         return sender_name
     def get_sender_picture(self, obj):
-        sender_picture = obj.sender.picture
-        return sender_picture
+        return obj.sender.picture
     def get_receiver_name(self, obj):
         receiver_name = obj.receiver.user.username
         return receiver_name
+    def get_receiver_picture(self, obj):
+        return obj.receiver.picture
 
 
 
