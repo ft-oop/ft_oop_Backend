@@ -160,16 +160,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return get_object_or_404(UserProfile, email=email)
 
     @transaction.atomic
-    def update_user_info(self, user_id, nick_name, picture):
-        user_profile = get_object_or_404(User, id=user_id).profile
-        if nick_name is not None:
-            if not UserProfile.objects.filter(nick_name=nick_name).exists():
-                user_profile.nick_name = nick_name
+    def update_user_info(self, user_id, user_name, picture):
+        user = get_object_or_404(User, id=user_id)
+        if user_name and user_name != "":
+            if not User.objects.filter(username=user_name).exists():
+                user.username = user_name
             else:
-                raise serializers.ValidationError("This nickName is already in use.")
+                raise serializers.ValidationError("This username is already in use.")
         if picture:
-            user_profile.picture = picture
-        user_profile.save()
+            user.profile.picture = picture
+        user.save()
 
 
 class UserSerializer(serializers.ModelSerializer):

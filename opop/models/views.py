@@ -166,7 +166,7 @@ def create_game(request):
     try:
         response = service.create_game_room(user_id, room_name, game_type, room_limit, password)
     except ValidationError as e:
-        return JsonResponse(e.detail, status=400)
+        return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse(response, safe=False, status=200)
 
 
@@ -204,7 +204,7 @@ def edit_my_page(request):
     try:
         service.update_user_info(user_id, new_name, picture)
     except ValidationError as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
