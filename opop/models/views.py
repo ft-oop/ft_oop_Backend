@@ -112,6 +112,7 @@ def get_user_info(request):
 
     user_info = UserInfoSerializer(find_user).data
     user_info['is_block'] = is_blocked
+    user_info['username'] = user_name
     return JsonResponse(user_info, safe=False, status=200)
 
 
