@@ -10,10 +10,10 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, \
     DualGameRoomSerializer, \
-    TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, get_user_info_by_api, \
+    TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, MessageSerializer, get_user_info_by_api, \
     get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code, get_user_info_from_token, \
     UserSerializer
-from .models import UserProfile, BlockRelation, MatchHistory, FriendShip, GameRoom
+from .models import UserProfile, BlockRelation, MatchHistory, FriendShip, GameRoom, Message
 from django.http import HttpResponse, JsonResponse
 
 
