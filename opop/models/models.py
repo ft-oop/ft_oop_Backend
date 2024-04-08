@@ -35,7 +35,17 @@ class GameRoom(models.Model):
         return self.host
 
     def get_user(self):
-        return list(self.users.all())
+        user_info = []
+        for user in self.users.all():
+            user_info.append({
+                'username' : user.user.username,
+            })
+        return user_info
+
+
+    
+    def get_room_person(self):
+        return len(self.users.all())
 
 
 class UserProfile(models.Model):
@@ -47,12 +57,13 @@ class UserProfile(models.Model):
 
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
-    code = models.CharField(max_length=6, default='default')
+    code = models.CharField(max_length=6, default='')
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
     # User 정보에서 이동
-    picture = models.ImageField(max_length=500, blank=True)
+    picture = models.TextField()
     is_registered = models.BooleanField(default=False)
+    # on_line = models.BooleanField(default=False)
 
     def get_picture(self):
         return self.picture

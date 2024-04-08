@@ -10,10 +10,10 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, \
     DualGameRoomSerializer, \
-    TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, get_user_info_by_api, \
+    TournamentRoomSerializer, GameRoomSerializer, FriendSerializer, BlockRelationSerializer, MessageSerializer, get_user_info_by_api, \
     get_42oauth_token, generate_token, send_two_factor_code, verify_two_factor_code, get_user_info_from_token, \
     UserSerializer
-from .models import UserProfile, BlockRelation, MatchHistory, FriendShip, GameRoom
+from .models import UserProfile, BlockRelation, MatchHistory, FriendShip, GameRoom, Message
 from django.http import HttpResponse, JsonResponse
 
 
@@ -32,8 +32,15 @@ def login(request):
     user = serializer.register_user(user_info=user_info)
 
     if not user.profile.is_registered:
-        return JsonResponse(generate_token(user), safe=False, status=status.HTTP_201_CREATED)
-    return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
+        token = generate_token(user)
+        response = JsonResponse(token, safe=False, status=status.HTTP_201_CREATED)
+        response.set_cookie('jwt', token['access'])
+        return response
+    token = generate_token(user)
+    response = JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
+    response.set_cookie('jwt', token['access'])
+    return response
+    # return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -43,7 +50,10 @@ def reissue_access_token(request):
     serializer = TokenRefreshSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
-    return JsonResponse(data, status=status.HTTP_200_OK)
+    response = JsonResponse(data, status=status.HTTP_200_OK)
+    response.set_cookie('jwt', data['access'])
+    return response
+    # return JsonResponse(data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -59,7 +69,11 @@ def two_factor(request):
     user_id = get_user_info_from_token(request)
     code = request.data['code']
     user = verify_two_factor_code(code, user_id)
-    return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
+    token = generate_token(user)
+    response = JsonResponse(token, status=status.HTTP_200_OK)
+    response.set_cookie('jwt', token['access'])
+    return response
+    # return JsonResponse(generate_token(user), status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -84,14 +98,13 @@ def get_user(request):
 @api_view(['GET'])
 def get_user_info(request):
     user_id = get_user_info_from_token(request)
-    user_name = request.GET.get('user')
-
+    user_name = request.GET.get('userName')
     try:
-        me = get_object_or_404(UserProfile, user_id=user_id)
+        me = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     try:
-        find_user = get_object_or_404(User, username=user_name)
+        find_user = get_object_or_404(User, username=user_name).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
@@ -99,6 +112,7 @@ def get_user_info(request):
 
     user_info = UserInfoSerializer(find_user).data
     user_info['is_block'] = is_blocked
+    user_info['username'] = user_name
     return JsonResponse(user_info, safe=False, status=200)
 
 
@@ -106,60 +120,61 @@ def get_user_info(request):
 def get_my_page(request):
     user_id = get_user_info_from_token(request)
     try:
-        user = get_object_or_404(UserProfile, user_id=user_id)
+        user = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     my_page_dto = MyPageSerializer(user).data
-
     return JsonResponse(my_page_dto, safe=False, status=200)
 
 
 @api_view(['GET'])
 def enter_dual_room(request, room_id):
-    user_name = request.GET.get('userName')
+    user_id = get_user_info_from_token(request)
     password = request.GET.get('password')
     service = DualGameRoomSerializer()
-    data = service.enter_dual_room(user_name, room_id, password)
+    data = service.enter_dual_room(user_id, room_id, password)
 
     return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['GET'])
 def enter_tournament_room(request, tournament_id):
+    user_id = get_user_info_from_token(request)
     nick_name = request.GET.get('nickName')
-    user_name = request.GET.get('userName')
     password = request.GET.get('password')
 
     service = TournamentRoomSerializer()
-    data = service.enter_tournament_room(nick_name, user_name, password, tournament_id)
+    data = service.enter_tournament_room(nick_name, user_id, password, tournament_id)
 
     return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['POST'])
 def create_game(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
         room_name = data['roomName']
         game_type = data['gameType']
-        room_limit = data['roomLimit']
+        room_limit = data['roomLimits']
         password = data['password']
-        user_name = data['userName']
     except KeyError:
-        return JsonResponse({'message': 'Bad Request'}, status=400)
+        return JsonResponse({
+            'message': 'Bad Request'
+        }, status=400)
     service = GameRoomSerializer()
     try:
-        response = service.create_game_room(user_name, room_name, game_type, room_limit, password)
+        response = service.create_game_room(user_id, room_name, game_type, room_limit, password)
     except ValidationError as e:
-        return JsonResponse(e.detail, status=400)
+        return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse(response, safe=False, status=200)
 
 
 @api_view(['POST'])
 def exit_game_room(request, room_id):
-    user_name = request.GET.get('userName')
+    user_id = get_user_info_from_token(request)
     service = GameRoomSerializer()
-    service.exit_game_room(user_name, room_id)
+    service.exit_game_room(user_id, room_id)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -181,63 +196,80 @@ def edit_my_page(request):
     user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        nick_name = data['nickName']
+        new_name = data['newName']
         picture = data['picture']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
-    servie = UserProfileSerializer()
-    servie.update_user_info(user_id, nick_name, picture)
+    service = UserProfileSerializer()
+    try:
+        service.update_user_info(user_id, new_name, picture)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
 @api_view(['POST'])
 def add_friend(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
         friend = data['friend']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
 
     service = FriendSerializer()
-    service.add_friend(user_name, friend)
+    service.add_friend(user_id, friend)
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['DELETE'])
+@api_view(['POST'])
 def delete_friend(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
-        friend = data['friend']
+        friend = data['friendName']
     except KeyError:
-        return JsonResponse({'error': 'Bad Request'}, status=400)
+        return JsonResponse({'error': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
     service = FriendSerializer()
-    service.delete_friend(user_name, friend)
+    service.delete_friend(user_id, friend)
     return JsonResponse('OK', safe=False, status=200)
 
 
 @api_view(['POST'])
 def add_friend_in_ban_list(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
-        target = data['target']
+        target = data['blockName']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = BlockRelationSerializer()
-    service.add_friend_in_ban_list(user_name, target)
+    service.add_friend_in_ban_list(user_id, target)
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['DELETE'])
+@api_view(['POST'])
 def remove_friend_in_ban_list(request):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        user_name = data['userName']
-        target = data['target']
+        target = data['blockName']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = BlockRelationSerializer()
-    service.remove_friend_in_ban_list(user_name, target)
+    service.remove_friend_in_ban_list(user_id, target)
     return JsonResponse('OK', safe=False, status=200)
+
+@api_view(['GET'])
+def get_chat_history(request):
+    sender_name = request.GET.get('sender')
+    receiver_name = request.GET.get('receiver')
+
+    sender_profile = get_object_or_404(User, username=sender_name).profile
+    receiver_profile = get_object_or_404(User, username=receiver_name).profile
+
+    message = Message.objects.filter(sender=sender_profile, receiver=receiver_profile)
+    serializer = MessageSerializer(message, many=True)
+
+    return JsonResponse(serializer.data, safe=False, status=200)
+    

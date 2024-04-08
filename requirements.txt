@@ -8,5 +8,7 @@ sqlparse==0.4.4
 typing_extensions==4.9.0
 django-cors-headers
 dj-rest-auth
+psycopg2-binary
 Pillow
 requests~=2.31.0
+channels

@@ -10,7 +10,7 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import AccessToken
 
-from .models import UserProfile, GameRoom, MatchHistory, BlockRelation, FriendShip
+from .models import UserProfile, GameRoom, MatchHistory, BlockRelation, FriendShip, Message
 from .. import settings
 
 
@@ -19,19 +19,20 @@ class GameRoomSerializer(serializers.ModelSerializer):
         model = GameRoom
 
     @transaction.atomic
-    def create_game_room(self, user_name, room_name, game_type, room_limit, password):
+    def create_game_room(self, id, room_name, game_type, room_limit, password):
         if game_type == 'TOURNAMENT':
             type_integer = 1
         elif game_type == 'DUAL':
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-        user = get_object_or_404(UserProfile, user_name=user_name)
+        user = get_object_or_404(User, id=id)
+        user_profile = user.profile
         game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
-                        host=user.get_user_name())
-        user.game_room = game
+                        host=user.username)
+        user_profile.game_room = game
         game.save()
-        user.save()
+        user_profile.save()
         return {'game_type': game_type, 'room_id': game.get_room_id()}
 
     @transaction.atomic
@@ -54,7 +55,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
         game = get_object_or_404(GameRoom, id=room_id)
         if game.get_host() != host_name:
             raise serializers.ValidationError("Invalid host name")
-        kick_user = get_object_or_404(UserProfile, user_name=user_name)
+        kick_user = get_object_or_404(UserProfile, nick_name=user_name)
         kick_user.game_room = None
         kick_user.save()
 
@@ -159,16 +160,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return get_object_or_404(UserProfile, email=email)
 
     @transaction.atomic
-    def update_user_info(self, user_id, nick_name, picture):
-        user_profile = get_object_or_404(User, id=user_id).profile
-        if nick_name is not None:
-            if not UserProfile.objects.filter(nick_name=nick_name).exists():
-                user_profile.nick_name = nick_name
+    def update_user_info(self, user_id, user_name, picture):
+        user = get_object_or_404(User, id=user_id)
+        if user_name and user_name != "":
+            if not User.objects.filter(username=user_name).exists():
+                user.username = user_name
             else:
-                raise serializers.ValidationError("This nickName is already in use.")
+                raise serializers.ValidationError("This username is already in use.")
         if picture:
-            user_profile.picture = picture
-        user_profile.save()
+            user.profile.picture = picture
+        user.save()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -236,7 +237,7 @@ class UserInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['total_win', 'total_lose', 'match_history', ]
+        fields = ['picture', 'total_win', 'total_lose', 'match_history',]
 
 
 class FriendSerializer(serializers.ModelSerializer):
@@ -251,19 +252,20 @@ class FriendSerializer(serializers.ModelSerializer):
         return {'user_name': user.user_name, 'picture': user.picture}
 
     @transaction.atomic
-    def add_friend(self, user_name, friend_name):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        friend = get_object_or_404(UserProfile, user_name=friend_name)
-        if not FriendShip.objects.filter(owner=user, friend=friend).exists():
-            friend_ship = FriendShip(owner=user, friend=friend)
+
+    def add_friend(self, user_id, friend_name):
+        user_profile = get_object_or_404(User, id=user_id).profile
+        friend = get_object_or_404(User, username=friend_name).profile
+        if not FriendShip.objects.filter(owner=user_profile, friend=friend).exists():
+            friend_ship = FriendShip(owner=user_profile, friend=friend)
             friend_ship.save()
         else:
             serializers.ValidationError("Friendship already exists.")
 
     @transaction.atomic
-    def delete_friend(self, user_name, friend_name):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        friend = get_object_or_404(UserProfile, user_name=friend_name)
+    def delete_friend(self, user_id, friend_name):
+        user = get_object_or_404(User, id=user_id).profile
+        friend = get_object_or_404(User, username=friend_name).profile
         friend_ship = get_object_or_404(FriendShip, owner=user, friend=friend)
         friend_ship.delete()
 
@@ -281,8 +283,8 @@ class BlockRelationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def add_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        target = get_object_or_404(UserProfile, user_name=target)
+        user = get_object_or_404(User, username=user_name).profile
+        target = get_object_or_404(User, username=target).profile
         if not BlockRelation.objects.filter(blocked=target, blocked_by=user).exists():
             block_relation = BlockRelation(blocked=target, blocked_by=user)
             block_relation.save()
@@ -312,13 +314,13 @@ class MyPageSerializer(serializers.ModelSerializer):
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
-        friend_list = [{'user_name': friend.friend.user_name, 'picture': friend.friend.picture} for friend in
+        friend_list = [{'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in
                        friends]
         return friend_list
 
     def get_ban_list(self, obj):
         bans = BlockRelation.objects.filter(blocked_by=obj)
-        ban_list = [{'user_name': ban.blocked.user_name, 'picture': ban.blocked.picture} for ban in bans]
+        ban_list = [{'user_name': ban.blocked.user.username, 'picture': ban.blocked.picture} for ban in bans]
         return ban_list
 
 
@@ -392,6 +394,20 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         user.save()
 
         return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
+
+class MessageSerializer(serializers.ModelSerializer):
+    # sender_name = serializers.SerializerMethodField()
+    # sender_picture = serializers.SerializerMethodField()
+    # sender_history = serializers.SerializerMethodField()
+    # receiver_history = serializers.SerializerMethodField()
+
+    # class Meta:
+    #     model = Message
+    #     fields = ['sender_name', 'sender_picture', 'sender_history', 'receiver_history' ]
+    class Meta:
+        model = Message
+        fields = ['sender', 'receiver', 'message', 'timestamp']
+
 
 
 def get_user_info_from_token(request):

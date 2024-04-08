@@ -1,16 +1,31 @@
-"""
-ASGI config for opop project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/4.2/howto/deployment/asgi/
-"""
-
 import os
 
-from django.core.asgi import get_asgi_application
-
+# Django 설정 로드 전에 설정 파일 경로를 환경 변수에 설정합니다.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'opop.settings')
 
-application = get_asgi_application()
+from django.core.asgi import get_asgi_application
+# Django 설정을 로드합니다.
+django_asgi_app = get_asgi_application()
+
+from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from .jwt_middleware import JWTAuthMiddleware
+import opop.routing
+
+# ASGI 프로토콜에 따라 요청을 처리하는 핸들러를 설정합니다.
+application = ProtocolTypeRouter({
+    # 'http': django_asgi_app,
+    # 'websocket': AuthMiddlewareStack(
+    #     URLRouter(
+    #         opop.routing.websocket_urlpatterns
+    #     )
+    # ),
+    'http': django_asgi_app,
+    'websocket': AuthMiddlewareStack(
+        JWTAuthMiddleware(
+            URLRouter(
+                opop.routing.websocket_urlpatterns
+                )
+        )
+    ),
+})

@@ -9,7 +9,7 @@ class CustomJWTAuthentication(JWTAuthentication):
 
     def authenticate(self, request):
         print('path = ' + request.path)
-        if request.path == '/oauth/login/' or request.path == '/jwt/reissue':
+        if request.path == '/api/oauth/login/' or request.path == '/api/jwt/reissue':
             return None
 
         raw_token = request.META.get('HTTP_AUTHORIZATION', None)

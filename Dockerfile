@@ -1,5 +1,9 @@
 FROM python:3.12.2-slim
 
+RUN pip install "uvicorn[standard]"
+
+RUN pip install uvicorn gunicorn
+
 RUN mkdir -p /app/src
 
 WORKDIR /app/src
