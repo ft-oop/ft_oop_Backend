@@ -237,7 +237,7 @@ class UserInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['total_win', 'total_lose', 'match_history', ]
+        fields = ['picture', 'total_win', 'total_lose', 'match_history',]
 
 
 class FriendSerializer(serializers.ModelSerializer):
