@@ -3,9 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.response import Response
-import requests
-import string
-import random
+import requests, re, string, random
 from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import AccessToken
@@ -161,7 +159,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update_user_info(self, user_id, user_name, picture):
+        korean = re.compile('[ㄱ-ㅎ가-힣]+')
+        if korean.search(user_name):
+            raise serializers.ValidationError("Can not input korean")
         user = get_object_or_404(User, id=user_id)
+        if not user_name.strip():
+            raise serializers.ValidationError("Can not input whitespace")
         if user.username == user_name:
             raise serializers.ValidationError("Can not Change by same name.")
         if user_name and user_name != "":
@@ -348,6 +351,8 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Invalid Room Type')
         if game_room.limits + 1 < game_room.limits:
             raise serializers.ValidationError('OverFlow limits')
+        print(game_room.password)
+        print(password)
         if game_room.password != "" and game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
         user.game_room = game_room

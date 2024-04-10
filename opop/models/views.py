@@ -221,6 +221,10 @@ def edit_my_page(request):
             return JsonResponse({'error': e.detail, 'code': 1001}, status=status.HTTP_400_BAD_REQUEST)
         if 'This username is already in use.' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1002}, status=status.HTTP_400_BAD_REQUEST)
+        if 'Can not input whitespace' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 1003}, status=status.HTTP_400_BAD_REQUEST)
+        if 'Can not input korean' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 1004}, status=status.HTTP_400_BAD_REQUEST)
     return JsonResponse('OK', safe=False, status=200)
 
 
