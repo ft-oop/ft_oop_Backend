@@ -111,10 +111,12 @@ def get_user_info(request):
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
     is_blocked = blocked.exists()
-
+    is_friend = FriendSerializer().is_frined(me, find_user)
     user_info = UserInfoSerializer(find_user).data
+
     user_info['is_block'] = is_blocked
     user_info['username'] = user_name
+    user_info['is_friend'] = is_friend
     return JsonResponse(user_info, safe=False, status=200)
 
 

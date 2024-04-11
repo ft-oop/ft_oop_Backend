@@ -261,11 +261,10 @@ class FriendSerializer(serializers.ModelSerializer):
         fields = ['friend']
 
     def get_friend(self, obj):
-        user = obj.friend
-        return {'user_name': user.user_name, 'picture': user.picture}
+        user = obj.friends
+        return {'user_name': user.username, 'picture': user.picture}
 
     @transaction.atomic
-
     def add_friend(self, user_id, friend_name):
         user_profile = get_object_or_404(User, id=user_id).profile
         friend = get_object_or_404(User, username=friend_name).profile
@@ -282,6 +281,8 @@ class FriendSerializer(serializers.ModelSerializer):
         friend_ship = get_object_or_404(FriendShip, owner=user, friend=friend)
         friend_ship.delete()
 
+    def is_frined(self, me, friend):
+        return FriendShip.objects.filter(owner=me, friend=friend).exists()
 
 class BlockRelationSerializer(serializers.ModelSerializer):
     blocked = serializers.SerializerMethodField()
