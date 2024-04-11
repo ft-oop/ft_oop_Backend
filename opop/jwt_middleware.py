@@ -1,9 +1,7 @@
 from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
-from .models.models import UserProfile
 from django.contrib.auth.models import User
 from channels.middleware import BaseMiddleware
-from django.contrib.auth.models import AnonymousUser
 
 class JWTAuthMiddleware(BaseMiddleware):
     def __init__(self, inner):
@@ -32,8 +30,14 @@ class JWTAuthMiddleware(BaseMiddleware):
 
     @database_sync_to_async
     def get_user_info_from_token(self, jwt):
-        token = AccessToken(jwt)
-        user_id = token['user_id']
-        user = User.objects.get(id=user_id)
+        try:
+            token = AccessToken(jwt)
+            user_id = token['user_id']
+            user = User.objects.get(id=user_id)
 
-        return user.profile
+            return user
+        except User.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'User does not exist'
+            }, status=404)

@@ -9,7 +9,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import UserProfile, GameRoom, MatchHistory, BlockRelation, FriendShip, Message
-from .. import settings
+from django.conf import settings
 
 
 class GameRoomSerializer(serializers.ModelSerializer):
@@ -186,13 +186,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
         user.save()
 
 class UserSerializer(serializers.ModelSerializer):
-    game_rooms = GameRoomSerializer(source='profile.game_rooms', read_only=True, many=True)
     picture = serializers.CharField(source='profile.picture', read_only=True)
-    nick_name = serializers.CharField(source='profile.nick_name', read_only=True)
+    # picture = UserProfile.picture
 
     class Meta:
         model = User
-        fields = ['id', 'nick_name', 'username', 'email', 'picture', 'game_rooms']
+        fields = ['id', 'username', 'email']
+
+    def generate_user_information(self, user, picture):
+        return {
+            'id':user.id,
+            'username': user.username,
+            'email': user.email,
+            'picture': picture
+        }
 
     @transaction.atomic
     def register_user(self, user_info):
@@ -200,23 +207,28 @@ class UserSerializer(serializers.ModelSerializer):
         picture = user_info['image']['link']
         print('picture ====' + picture)
         email = user_info.get('email')
+        print('email ======' + email)
         oauth_id = user_info.get('id')
 
-        user, user_created = User.objects.get_or_create(username=user_name, defaults={
-            'email': email,
+        user, user_created = User.objects.get_or_create(email=email, defaults={
+            'username': user_name,
         })
+        if user_created:
+            user.save()
+            print('user created!!!!')
+        else:
+            print('user already exists!!!!')
 
         user_profile, profile_created = UserProfile.objects.get_or_create(user=user, defaults={
             'picture': picture,
             'oauth_id': oauth_id,
             'is_registered': False,
         })
-
-        user_profile.picture = picture
-        user_profile.oauth_id = oauth_id
-
-        user.save()
-        user_profile.save()
+        if profile_created:
+            user_profile.save()
+            print('profile created!!!!')
+        else:
+            print('profile already exists!!!!')
 
         return user
 
@@ -261,14 +273,15 @@ class FriendSerializer(serializers.ModelSerializer):
         fields = ['friend']
 
     def get_friend(self, obj):
-        user = obj.friend
-        return {'user_name': user.user_name, 'picture': user.picture}
+        user = obj.friends
+        return {'user_name': user.username, 'picture': user.picture}
 
     @transaction.atomic
-
     def add_friend(self, user_id, friend_name):
         user_profile = get_object_or_404(User, id=user_id).profile
         friend = get_object_or_404(User, username=friend_name).profile
+        if BlockRelation.objects.filter(blocked=friend, blocked_by=user_profile).exists():
+            raise serializers.ValidationError("Friend is Blocked friend")
         if not FriendShip.objects.filter(owner=user_profile, friend=friend).exists():
             friend_ship = FriendShip(owner=user_profile, friend=friend)
             friend_ship.save()
@@ -282,6 +295,8 @@ class FriendSerializer(serializers.ModelSerializer):
         friend_ship = get_object_or_404(FriendShip, owner=user, friend=friend)
         friend_ship.delete()
 
+    def is_frined(self, me, friend):
+        return FriendShip.objects.filter(owner=me, friend=friend).exists()
 
 class BlockRelationSerializer(serializers.ModelSerializer):
     blocked = serializers.SerializerMethodField()

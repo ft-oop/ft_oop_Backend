@@ -37,7 +37,7 @@ def login(request):
         response.set_cookie('jwt', token['access'])
         return response
     token = generate_token(user)
-    response = JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
+    response = JsonResponse(token, safe=False, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
     return response
     # return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
@@ -71,7 +71,7 @@ def two_factor(request):
     try:
         user = verify_two_factor_code(code, user_id)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=403)
+        return JsonResponse({'error': e.detail}, status=400)
     token = generate_token(user)
     response = JsonResponse(token, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
@@ -94,7 +94,10 @@ def get_user(request):
         return HttpResponse(status=404, message="User Not Found")
 
     serializer = UserSerializer(user, many=False)
-    return JsonResponse(serializer.data, safe=False, status=200)
+    picture = user.profile.picture
+    data = serializer.generate_user_information(user, picture)
+
+    return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['GET'])
@@ -111,10 +114,12 @@ def get_user_info(request):
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
     is_blocked = blocked.exists()
-
+    is_friend = FriendSerializer().is_frined(me, find_user)
     user_info = UserInfoSerializer(find_user).data
+
     user_info['is_block'] = is_blocked
     user_info['username'] = user_name
+    user_info['is_friend'] = is_friend
     return JsonResponse(user_info, safe=False, status=200)
 
 
@@ -251,7 +256,11 @@ def add_friend(request):
     try:
         service.add_friend(user_id, friend)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
+        error_messages = [str(detail) for detail in e.detail][0]
+        if 'Friend is Blocked friend' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 2000}, status=400)
+        else:
+            return JsonResponse({'error': e.detail, 'code': 2001}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
