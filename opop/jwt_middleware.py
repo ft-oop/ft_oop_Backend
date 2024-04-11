@@ -4,6 +4,7 @@ from .models.models import UserProfile
 from django.contrib.auth.models import User
 from channels.middleware import BaseMiddleware
 from django.contrib.auth.models import AnonymousUser
+from django.http import JsonResponse
 
 class JWTAuthMiddleware(BaseMiddleware):
     def __init__(self, inner):
@@ -37,10 +38,9 @@ class JWTAuthMiddleware(BaseMiddleware):
             user_id = token['user_id']
             user = User.objects.get(id=user_id)
 
-            return user.profile
+            return user
         except User.DoesNotExist:
             return JsonResponse({
                 'status': 'error',
                 'message': 'User does not exist'
-
             }, status=404)
