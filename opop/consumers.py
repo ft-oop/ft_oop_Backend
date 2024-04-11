@@ -20,7 +20,7 @@ def get_user_info_from_token(jwt):
 
     return user.profile
 
-class ChatConsumer(AsyncWebsocketConsumer):
+class NoticeConsumer(AsyncWebsocketConsumer):
 
     async def create_room_and_enter_users(self):
         users = list(random_match_users)
@@ -73,15 +73,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=message)
 
     async def connect(self):
-        user = self.scope['user']
-        user_channel_names[user.user.username] = self.channel_name
         await self.accept()
-
-        online_users.add(user)
-        await self.channel_layer.group_add(
-            "online_users",
-            self.channel_name
-        )
+        online_users.add(self.scope['user']) 
+        print(len(online_users))
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
             'message': 'You are now connected!',
@@ -122,22 +116,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 await self.send(text_data=json.dumps(friend_list))
             
-            if data['message'] == 'chat':
-                print("message is chat..!!" + data['receiver'])
+            # if data['message'] == 'chat':
+            #     print("message is chat..!!" + data['receiver'])
                 
-                sender = data['sender']
-                receiver = data['receiver']
-                message = data['input']
+            #     sender = data['sender']
+            #     receiver = data['receiver']
+            #     message = data['input']
 
-                sender_profile = await self.get_user_profile(sender)
-                receiver_profile = await self.get_user_profile(receiver)
-                await self.save_message(sender_profile, receiver_profile, message)
+            #     sender_profile = await self.get_user_profile(sender)
+            #     receiver_profile = await self.get_user_profile(receiver)
+            #     await self.save_message(sender_profile, receiver_profile, message)
                
-                await self.send(text_data=json.dumps({
-                    'sender': sender,
-                    'receiver': receiver,
-                    'input': message
-                }))
+            #     await self.send(text_data=json.dumps({
+            #         'sender': sender,
+            #         'receiver': receiver,
+            #         'input': message
+            #     }))
             
             if data['message'] == 'random_match':
                 user_profile = self.scope['user']
@@ -187,8 +181,65 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return friends_status
     
     @database_sync_to_async
-    def get_user_profile(self, username):
-        return User.objects.get(username=username).profile
+    def create_random_match_room(self, user1):
+        return GameRoom.objects.create(
+                    room_name="랜덤 매치 방",
+                    room_type=0,
+                    limits=2,
+                    password="",
+                    host=user1.user.username
+                )
+
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = f'chat_{self.room_name}'
+        
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            self.channel_name
+        )
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            sender = data['sender']
+            receiver = data['receiver']
+            message = data['message']
+
+            sender_profile = await self.get_user_profile(sender)
+            receiver_profile = await self.get_user_profile(receiver)
+            await self.save_message(sender_profile, receiver_profile, message)
+            
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'chat_message',
+                    'sender': sender,
+                    'message': message
+                }
+            )
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'message': 'fail'}))
+    
+    async def chat_message(self, event):
+        sender = event['sender']
+        message = event['message']
+
+        print(sender)
+        # 클라이언트에게 메시지 전송
+        await self.send(text_data=json.dumps({
+            'sender': sender,
+            'message': message
+        }))
 
     @database_sync_to_async
     def save_message(self, sender_profile, receiver_profile, message):
@@ -199,11 +250,5 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
     
     @database_sync_to_async
-    def create_random_match_room(self, user1):
-        return GameRoom.objects.create(
-                    room_name="랜덤 매치 방",
-                    room_type=0,
-                    limits=2,
-                    password="",
-                    host=user1.user.username
-                )
+    def get_user_profile(self, username):
+        return User.objects.get(username=username).profile
