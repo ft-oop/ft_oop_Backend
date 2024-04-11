@@ -2,18 +2,16 @@ from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 from django.contrib.auth.models import User
 from channels.middleware import BaseMiddleware
-
+from django.http import HttpResponse, JsonResponse
+from django.contrib.auth.models import AnonymousUser
 class JWTAuthMiddleware(BaseMiddleware):
     def __init__(self, inner):
         super().__init__(inner)
 
     async def __call__(self, scope, receive, send):
-        # try:
         jwt_token = await self.get_jwt_token(scope)
         user = await self.get_user_info_from_token(jwt_token)
         scope['user'] = user
-        # except Exception as e:
-        #     scope['user'] = AnonymousUser()
         return await super().__call__(scope, receive, send)
 
     async def get_jwt_token(self, scope):

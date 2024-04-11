@@ -238,40 +238,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return User.objects.get(username=username).profile
 
 class GameConsumer(AsyncWebsocketConsumer):
-
     user1 = {
         "ready" : False,
     }
     user2 = {
         "ready" : False,
     }
-    game = True
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(args, kwargs)
-        self.user = [[]]
-        self.room_name = None
-        self.game = False
+    user = []
+    game = False
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(args, kwargs)
+    #     self.user = []
+    #     self.room_name = None
+    #     self.game = False
     
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'room_{self.room_name}'
-
+        print(self.room_name)
         player = self.scope['user']
         if len(self.user) > 2:
             await self.send(text_data=json.dumps({'message': 'full room'}))
         
-        self.user.append([player, False])    
-        
+        self.user.append([player, False])
+        print(self.user)
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
-
+        
+        # await self.accept()
+        # await self.send(text_data=json.dumps({"type": "user", "user": len(self.user)}))
         if len(self.user) == 1:
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": self.user[0][0].username}))
-        else:
+        elif len(self.user) == 2:
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": self.user[1][0].username}))
 
@@ -291,7 +292,9 @@ class GameConsumer(AsyncWebsocketConsumer):
         사용자와 WebSocket 연결이 끊겼을 때 호출
         """
         player = self.scope['user']
-        self.user.remove(player)
+        for p in self.user:
+            if p[0] == player:
+                self.user.remove(p)
         # Leave room group
 
         await self.channel_layer.group_discard(
