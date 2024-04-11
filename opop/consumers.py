@@ -51,11 +51,11 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         }))
 
     async def disconnect(self, close_code):
-        print("logout.......")
+        print('logout.......')
         online_users.remove(self.scope['user'])
     
     async def receive(self, text_data):
-        print("received message: " + text_data)
+        print('received message: ' + text_data)
         if (len(random_match_users) == 2):
             await self.create_room_and_enter_users()
             # self.enter_room
@@ -79,23 +79,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
                 await self.send(text_data=json.dumps(friend_list))
             
-            # if data['message'] == 'chat':
-            #     print("message is chat..!!" + data['receiver'])
-                
-            #     sender = data['sender']
-            #     receiver = data['receiver']
-            #     message = data['input']
-
-            #     sender_profile = await self.get_user_profile(sender)
-            #     receiver_profile = await self.get_user_profile(receiver)
-            #     await self.save_message(sender_profile, receiver_profile, message)
-               
-            #     await self.send(text_data=json.dumps({
-            #         'sender': sender,
-            #         'receiver': receiver,
-            #         'input': message
-            #     }))
-            
             if data['message'] == 'random_match':
                 user_profile = self.scope['user']
                 random_match_users.add(user_profile)
@@ -116,20 +99,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                     'message': 'match canceled!'
                 }))
 
-                
-            # if data['message'] == 'login':
-            #     jwt = data['token']
-            #     user = await get_user_info_from_token(jwt)
-            #     online_users.add(user)
-            #     print(len(online_users))
-            #     await self.send(text_data=json.dumps({
-            #         'message': 'user login successful!',
-            #         'userLen' : len(online_users)
-            #     }))
-            # if data['message'] == 'logout':
-            #     jwt = data['token']
-            #     user = await get_user_info_from_token(jwt)
-            #     online_users.remove(user)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -229,3 +198,87 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_user_profile(self, username):
         return User.objects.get(username=username).profile
+
+class GameConsumer(AsyncWebsocketConsumer):
+    user1 = {
+        "activate" : False,
+        "ready" : False,
+        "move" : 1,
+    }
+    user2 = {
+        "activate" : False,
+        "ready" : False,
+        "move" : 2,
+    }
+    game = True
+
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = f'room_{self.room_name}'
+        
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+
+        if not self.user1['activate']:
+            self.user1["activate"] = True
+            print("user1 conncet")
+            await self.accept()
+            await self.send(text_data=json.dumps({"type": "user", "user": "user1"}))
+        elif not self.user2["activate"]:
+            self.user2["activate"] = True
+            print("user2 conncet")
+            await self.accept()
+            await self.send(text_data=json.dumps({"type": "user", "user": "user2"}))
+    
+    async def disconnect(self, close_code):
+        """
+        사용자와 WebSocket 연결이 끊겼을 때 호출
+        """
+        # Leave room group
+        await self.channel_layer.group_discard(
+            self.room_group_name, self.channel_name
+        )
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        try:
+            if data['type'] == 'ready':
+                if self.user1['user'] == 'user1':
+                    self.user1['ready'] = True
+                elif data['user'] == 'user2':
+                    self.user2['ready'] = True
+            if self.game and self.user1['ready'] and self.user2['ready']:
+                self.game = False
+                self.user1["ready"] = False
+                self.user2["ready"] = False
+                await self.channel_layer.group_send(
+                    self.room_group_name, {'type': 'start_message', 'message' : 'start'}
+                )
+            if data['type'] == 'user_update':
+                if data['id'] == 'user1':
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user1',
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                    )
+                elif data['id'] == 'user2':
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user2',
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                    )
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'message': 'fail'}))
+
+    async def start_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({'type': message}))
+
+    async def user_update(self, event):
+        message = event['message']
+        user = event['user']
+        posY = event['posY']
+        skill = event['skill']
+        skillpower = event['skillpower']
+        await self.send(text_data=json.dumps({'type': message, 'user' : user, 'posY' : posY,
+                                              'skill' : skill, 'skillpower' : skillpower}))
