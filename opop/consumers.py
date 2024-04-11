@@ -3,10 +3,9 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
-import sys
-from .models.models import UserProfile, GameRoom, Message
+from models.models import GameRoom, Message
 from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404
+
 online_users = set()
 random_match_users = set()
 

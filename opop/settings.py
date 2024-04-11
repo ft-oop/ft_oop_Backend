@@ -35,7 +35,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
-    'opop.models',
+    'opop',
+    'models',
     'channels',
 ] + THIRD_PARTIES
 
