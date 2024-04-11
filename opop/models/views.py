@@ -257,7 +257,7 @@ def add_friend(request):
         if 'Friend is Blocked friend' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 2000}, status=400)
         else:
-            return JsonResponse({'error': e.detail}, status=400)
+            return JsonResponse({'error': e.detail, 'code': 2001}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 
