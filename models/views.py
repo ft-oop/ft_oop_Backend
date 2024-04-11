@@ -37,7 +37,7 @@ def login(request):
         response.set_cookie('jwt', token['access'])
         return response
     token = generate_token(user)
-    response = JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
+    response = JsonResponse(token, safe=False, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
     return response
     # return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
@@ -71,7 +71,7 @@ def two_factor(request):
     try:
         user = verify_two_factor_code(code, user_id)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=403)
+        return JsonResponse({'error': e.detail}, status=400)
     token = generate_token(user)
     response = JsonResponse(token, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
@@ -94,7 +94,10 @@ def get_user(request):
         return HttpResponse(status=404, message="User Not Found")
 
     serializer = UserSerializer(user, many=False)
-    return JsonResponse(serializer.data, safe=False, status=200)
+    picture = user.profile.picture
+    data = serializer.generate_user_information(user, picture)
+
+    return JsonResponse(data, safe=False, status=200)
 
 
 @api_view(['GET'])
