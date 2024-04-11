@@ -201,14 +201,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 class GameConsumer(AsyncWebsocketConsumer):
     user1 = {
-        "activate" : False,
         "ready" : False,
-        "move" : 1,
     }
     user2 = {
-        "activate" : False,
         "ready" : False,
-        "move" : 2,
     }
     game = True
 
