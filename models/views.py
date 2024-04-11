@@ -71,7 +71,7 @@ def two_factor(request):
     try:
         user = verify_two_factor_code(code, user_id)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=403)
+        return JsonResponse({'error': e.detail}, status=400)
     token = generate_token(user)
     response = JsonResponse(token, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
