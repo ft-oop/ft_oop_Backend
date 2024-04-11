@@ -253,7 +253,11 @@ def add_friend(request):
     try:
         service.add_friend(user_id, friend)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
+        error_messages = [str(detail) for detail in e.detail][0]
+        if 'Friend is Blocked friend' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 2000}, status=400)
+        else:
+            return JsonResponse({'error': e.detail}, status=400)
     return JsonResponse('OK', safe=False, status=200)
 
 

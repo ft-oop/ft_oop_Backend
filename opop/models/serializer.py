@@ -268,6 +268,8 @@ class FriendSerializer(serializers.ModelSerializer):
     def add_friend(self, user_id, friend_name):
         user_profile = get_object_or_404(User, id=user_id).profile
         friend = get_object_or_404(User, username=friend_name).profile
+        if BlockRelation.objects.filter(blocked=friend, blocked_by=user_profile).exists():
+            raise serializers.ValidationError("Friend is Blocked friend")
         if not FriendShip.objects.filter(owner=user_profile, friend=friend).exists():
             friend_ship = FriendShip(owner=user_profile, friend=friend)
             friend_ship.save()
