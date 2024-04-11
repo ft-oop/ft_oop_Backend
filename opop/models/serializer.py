@@ -160,6 +160,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update_user_info(self, user_id, user_name, picture):
         korean = re.compile('[ㄱ-ㅎ가-힣]+')
+        if not user_name:
+            return
         if korean.search(user_name):
             raise serializers.ValidationError("Can not input korean")
         user = get_object_or_404(User, id=user_id)
@@ -176,7 +178,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             user.profile.picture = picture
         user.save()
         user.profile.save()
-
+    
+    @transaction.atomic
+    def set_nick_name(self, user_id, nick_name):
+        user = get_object_or_404(User, id=user_id).profile
+        user.nick_name = nick_name
+        user.save()
 
 class UserSerializer(serializers.ModelSerializer):
     game_rooms = GameRoomSerializer(source='profile.game_rooms', read_only=True, many=True)
@@ -288,23 +295,22 @@ class BlockRelationSerializer(serializers.ModelSerializer):
         return {'user_name': user.user_name, 'picture': user.picture}  # 필요한 필드를 선택하여 반환
 
     @transaction.atomic
-    def add_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(User, username=user_name).profile
+    def add_friend_in_ban_list(self, user_id, target):
+        user = get_object_or_404(User, id=user_id).profile
         target = get_object_or_404(User, username=target).profile
         if not BlockRelation.objects.filter(blocked=target, blocked_by=user).exists():
             block_relation = BlockRelation(blocked=target, blocked_by=user)
             block_relation.save()
-            # 친구 목록에서도 삭제해야할까??
-            # if FriendShip.objects.filter(owner=user, friend=target).exists():
-            #     friend_ship = FriendShip.objects.get(owner=user, friend=target)
-            #     friend_ship.delete()
+            if FriendShip.objects.filter(owner=user, friend=target).exists():
+                friend_ship = FriendShip.objects.get(owner=user, friend=target)
+                friend_ship.delete()
         else:
             raise serializers.ValidationError("Already blocked user.")
 
     @transaction.atomic
-    def remove_friend_in_ban_list(self, user_name, target):
-        user = get_object_or_404(UserProfile, user_name=user_name)
-        target = get_object_or_404(UserProfile, user_name=target)
+    def remove_friend_in_ban_list(self, user_id, target):
+        user = get_object_or_404(User, id=user_id).profile
+        target = get_object_or_404(User, username=target).profile
         block_relation = get_object_or_404(BlockRelation, blocked=target, blocked_by=user)
         block_relation.delete()
 
@@ -320,7 +326,7 @@ class MyPageSerializer(serializers.ModelSerializer):
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
-        friend_list = [{'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in
+        friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in
                        friends]
         return friend_list
 
@@ -351,8 +357,6 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Invalid Room Type')
         if game_room.limits + 1 < game_room.limits:
             raise serializers.ValidationError('OverFlow limits')
-        print(game_room.password)
-        print(password)
         if game_room.password != "" and game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
         user.game_room = game_room
@@ -393,15 +397,20 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
-        user = get_object_or_404(UserProfile, username=user_name)
+        if UserProfile.objects.get(nick_name=nick_name).exist():
+            raise serializers.ValidationError("Duplicated nickname")
+        user = get_object_or_404(User, username=user_name).profile
         user.nick_name = nick_name
         user.game_room = game_room
 
-        host_picture = get_object_or_404(UserProfile, user_name=game_room.get_host()).get_picture()
+        host = get_object_or_404(User, username=game_room.get_host()).profile
+        
+        host_picture = host.get_picture()
+
         guest_list = self.get_guest_list(game_room)
         user.save()
 
-        return {"host_name": game_room.get_host(), "host_picture": host_picture, "guest_list": guest_list}
+        return {"host_nickname": host.nick_name, "host_picture": host_picture, "guest_list": guest_list}
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField()

@@ -143,20 +143,30 @@ def enter_dual_room(request, room_id):
 
 
 @api_view(['GET'])
-def enter_tournament_room(request, tournament_id):
+def enter_tournament_room(request, room_id):
     user_id = get_user_info_from_token(request)
     nick_name = request.GET.get('nickName')
     password = request.GET.get('password')
-
     service = TournamentRoomSerializer()
-
     try:
-        data = service.enter_tournament_room(nick_name, user_id, password, tournament_id)
+        data = service.enter_tournament_room(nick_name, user_id, password, room_id)
     except ValidationError as e:
         return JsonResponse({'error': e.detail}, status=400)
     
     return JsonResponse(data, safe=False, status=200)
 
+@api_view(['POST'])
+def set_host_nick_name(request):
+    user_id = get_user_info_from_token(request)
+    try:
+        data = json.loads(request.body)
+        nick_name = data['nickName']
+    except KeyError:
+        return JsonResponse({'message' : 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
+    service = UserProfileSerializer()
+    service.set_nick_name(user_id, nick_name)
+
+    return JsonResponse('OK', safe=False, status=200)
 
 @api_view(['POST'])
 def create_game(request):
