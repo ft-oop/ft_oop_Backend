@@ -4,10 +4,10 @@ from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
-import sys
-from .models.models import GameRoom, Message, UserProfile
+
+from models.models import GameRoom, Message, UserProfile
 from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404
+
 online_users = set()
 random_match_users = set()
 user_channel_names = {}
@@ -25,22 +25,23 @@ class NoticeConsumer(AsyncWebsocketConsumer):
     async def create_room_and_enter_users(self):
         users = list(random_match_users)
         user1, user2 = users[0], users[1]
-        room = await self.create_random_match_room(user1)
+        room = await self.create_random_match_room(user1.username)
+        
         self.room_group_name = f'chat_{room.id}'
 
         await self.channel_layer.group_add(
             self.room_group_name,
-            user_channel_names[user1.user.username]
+            user_channel_names[user1.id]
         )
 
         await self.channel_layer.group_add(
             self.room_group_name,
-            user_channel_names[user2.user.username]
+            user_channel_names[user2.id]
         )
 
         target_users = [
-            {'name': user1.user.username, 'photo': user1.picture},
-            {'name': user2.user.username, 'photo': user2.picture}
+            {'name': user1.username, 'photo': user1.profile.picture},
+            {'name': user2.username, 'photo': user2.profile.picture}
         ]
 
         await self.channel_layer.group_send(
@@ -57,11 +58,11 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_discard(
             self.room_group_name,
-            user_channel_names[user1.user.username]
+            user_channel_names[user1.id]
         )
         await self.channel_layer.group_discard(
             self.room_group_name,
-            user_channel_names[user2.user.username]
+            user_channel_names[user2.id]
         )
         
         random_match_users.clear()
@@ -74,7 +75,9 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         await self.accept()
-        online_users.add(self.scope['user']) 
+        user = self.scope['user']
+        user_channel_names[user.id] = user.username
+        online_users.add(user) 
         print(len(online_users))
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
@@ -83,6 +86,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         }))
 
     async def disconnect(self, close_code):
+        print('logout.......')
         # if self.user.username in user_channel_names:
         #     del user_channel_names[self.user.username]
         online_users.remove(self.scope['user'])
@@ -93,6 +97,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         )
     
     async def receive(self, text_data):
+        print('received message: ' + text_data)
         if (len(random_match_users) == 2):
             await self.create_room_and_enter_users()
             # self.enter_room
@@ -116,26 +121,10 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
                 await self.send(text_data=json.dumps(friend_list))
             
-            # if data['message'] == 'chat':
-            #     print("message is chat..!!" + data['receiver'])
-                
-            #     sender = data['sender']
-            #     receiver = data['receiver']
-            #     message = data['input']
-
-            #     sender_profile = await self.get_user_profile(sender)
-            #     receiver_profile = await self.get_user_profile(receiver)
-            #     await self.save_message(sender_profile, receiver_profile, message)
-               
-            #     await self.send(text_data=json.dumps({
-            #         'sender': sender,
-            #         'receiver': receiver,
-            #         'input': message
-            #     }))
-            
             if data['message'] == 'random_match':
-                user_profile = self.scope['user']
-                random_match_users.add(user_profile)
+                user = self.scope['user']
+                user_profile = await sync_to_async(lambda: user.profile)()
+                random_match_users.add(user)
                 user_name = data['name']
                 if (len(random_match_users) == 2):
                     await self.create_room_and_enter_users()
@@ -187,7 +176,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                     room_type=0,
                     limits=2,
                     password="",
-                    host=user1.user.username
+                    host=user1
                 )
 
 class ChatConsumer(AsyncWebsocketConsumer):

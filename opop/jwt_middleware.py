@@ -1,10 +1,7 @@
 from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
-from .models.models import UserProfile
 from django.contrib.auth.models import User
 from channels.middleware import BaseMiddleware
-from django.contrib.auth.models import AnonymousUser
-from django.http import JsonResponse
 
 class JWTAuthMiddleware(BaseMiddleware):
     def __init__(self, inner):
