@@ -193,8 +193,10 @@ def create_game(request):
         error_message = [str(detail) for detail in e.detail][0]
         if error_message == 'Duplicated nickname':
             return JsonResponse({'error': error_message, 'code': 3000}, status=400)
+        elif error_message == 'Invalid nickname':
+            return JsonResponse({'error': error_message, 'code': 3001}, status=400)
         else:
-            return JsonResponse({'error': e.detail, 'code': 3001}, status=400)
+            return JsonResponse({'error': e.detail, 'code': 3002}, status=400)
     return JsonResponse(response, safe=False, status=200)
 
 

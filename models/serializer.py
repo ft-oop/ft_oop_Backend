@@ -23,6 +23,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
         
         if game_type == 'TOURNAMENT':
             type_integer = 1
+            if not nick_name.strip() and nick_name:
+                raise serializers.ValidationError("Invalid nickname")
             if UserProfile.objects.filter(nick_name=nick_name).exists() and user_profile.nick_name != nick_name:
                 raise serializers.ValidationError("Duplicated nickname")
             user_profile.nick_name= nick_name
