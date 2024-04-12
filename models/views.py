@@ -53,7 +53,6 @@ def reissue_access_token(request):
     response = JsonResponse(data, status=status.HTTP_200_OK)
     response.set_cookie('jwt', data['access'])
     return response
-    # return JsonResponse(data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -103,13 +102,13 @@ def get_user(request):
 @api_view(['GET'])
 def get_user_info(request):
     user_id = get_user_info_from_token(request)
-    user_name = request.GET.get('userName')
+    user_oauth_id = request.GET.get('userID')
     try:
         me = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     try:
-        find_user = get_object_or_404(User, username=user_name).profile
+        find_user = get_object_or_404(UserProfile, oauth_id=user_oauth_id)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
@@ -118,7 +117,7 @@ def get_user_info(request):
     user_info = UserInfoSerializer(find_user).data
 
     user_info['is_block'] = is_blocked
-    user_info['username'] = user_name
+    user_info['username'] = find_user.user.username
     user_info['is_friend'] = is_friend
     return JsonResponse(user_info, safe=False, status=200)
 
@@ -182,15 +181,22 @@ def create_game(request):
         game_type = data['gameType']
         room_limit = data['roomLimits']
         password = data['password']
+        nick_name = data['nickname']
     except KeyError:
         return JsonResponse({
             'message': 'Bad Request'
         }, status=400)
     service = GameRoomSerializer()
     try:
-        response = service.create_game_room(user_id, room_name, game_type, room_limit, password)
+        response = service.create_game_room(user_id, room_name, game_type, room_limit, password, nick_name)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
+        error_message = [str(detail) for detail in e.detail][0]
+        if error_message == 'Duplicated nickname':
+            return JsonResponse({'error': error_message, 'code': 3000}, status=400)
+        elif error_message == 'Invalid nickname':
+            return JsonResponse({'error': error_message, 'code': 3001}, status=400)
+        else:
+            return JsonResponse({'error': e.detail, 'code': 3002}, status=400)
     return JsonResponse(response, safe=False, status=200)
 
 
@@ -234,12 +240,14 @@ def edit_my_page(request):
         error_messages = [str(detail) for detail in e.detail][0]
         if 'Can not Change by same name.' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1001}, status=status.HTTP_400_BAD_REQUEST)
-        if 'This username is already in use.' == error_messages:
+        elif 'This username is already in use.' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1002}, status=status.HTTP_400_BAD_REQUEST)
-        if 'Can not input whitespace' == error_messages:
+        elif 'Can not input whitespace' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1003}, status=status.HTTP_400_BAD_REQUEST)
-        if 'Can not input korean' == error_messages:
+        elif 'Can not input korean' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1004}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return JsonResponse({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
     return JsonResponse('OK', safe=False, status=200)
 
 
@@ -307,10 +315,10 @@ def remove_friend_in_ban_list(request):
 
 @api_view(['GET'])
 def get_chat_history(request):
-    receiver_name = request.GET.get('receiver')
-    sender_name = request.GET.get('sender')
-    sender_profile = get_object_or_404(User, username=sender_name).profile
-    receiver_profile = get_object_or_404(User, username=receiver_name).profile
+    receiver_id = request.GET.get('receiver')
+    sender_id = request.GET.get('sender')
+    sender_profile = get_object_or_404(UserProfile, oauth_id=sender_id)
+    receiver_profile = get_object_or_404(UserProfile, oauth_id=receiver_id)
     
     send_message = MessageSerializer(Message.objects.filter(sender=sender_profile, receiver=receiver_profile), many=True).data
     receive_message = MessageSerializer(Message.objects.filter(sender=receiver_profile, receiver=sender_profile), many=True).data

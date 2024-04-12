@@ -17,15 +17,21 @@ class GameRoomSerializer(serializers.ModelSerializer):
         model = GameRoom
 
     @transaction.atomic
-    def create_game_room(self, id, room_name, game_type, room_limit, password):
+    def create_game_room(self, id, room_name, game_type, room_limit, password, nick_name):
+        user = get_object_or_404(User, id=id)
+        user_profile = user.profile
+        
         if game_type == 'TOURNAMENT':
             type_integer = 1
+            if not nick_name.strip() and nick_name:
+                raise serializers.ValidationError("Invalid nickname")
+            if UserProfile.objects.filter(nick_name=nick_name).exists() and user_profile.nick_name != nick_name:
+                raise serializers.ValidationError("Duplicated nickname")
+            user_profile.nick_name= nick_name
         elif game_type == 'DUAL':
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-        user = get_object_or_404(User, id=id)
-        user_profile = user.profile
         game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
                         host=user.username)
         user_profile.game_room = game
@@ -334,10 +340,10 @@ class MyPageSerializer(serializers.ModelSerializer):
     friends = serializers.SerializerMethodField()
     ban_list = serializers.SerializerMethodField()
     username = serializers.CharField(source='user.username', read_only=True)
-
+    user_id = serializers.IntegerField(source='oauth_id', read_only=True)
     class Meta:
         model = UserProfile
-        fields = ['username', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
+        fields = ['user_id', 'username', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
 
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
@@ -412,7 +418,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
-        if UserProfile.objects.get(nick_name=nick_name).exist():
+        if UserProfile.objects.filter(nick_name=nick_name).exists():
             raise serializers.ValidationError("Duplicated nickname")
         user = get_object_or_404(User, username=user_name).profile
         user.nick_name = nick_name
@@ -428,24 +434,24 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         return {"host_nickname": host.nick_name, "host_picture": host_picture, "guest_list": guest_list}
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.SerializerMethodField()
-    receiver_name = serializers.SerializerMethodField()
+    sender_id = serializers.SerializerMethodField()
+    receiver_id = serializers.SerializerMethodField()
 
     # class Meta:
     #     model = Message
     #     fields = ['sender_name', 'sender_picture', 'sender_history', 'receiver_history' ]
     class Meta:
         model = Message
-        fields = ['sender_name', 'receiver_name', 'message', 'timestamp']
+        fields = ['sender_id', 'receiver_id', 'message', 'timestamp']
     
-    def get_sender_name(self, obj):
-        sender_name = obj.sender.user.username
-        return sender_name
+    def get_sender_id(self, obj):
+        sender_id = obj.sender.oauth_id
+        return sender_id
     def get_sender_picture(self, obj):
         return obj.sender.picture
-    def get_receiver_name(self, obj):
-        receiver_name = obj.receiver.user.username
-        return receiver_name
+    def get_receiver_id(self, obj):
+        receiver_id = obj.receiver.oauth_id
+        return receiver_id
     def get_receiver_picture(self, obj):
         return obj.receiver.picture
 
