@@ -53,7 +53,6 @@ def reissue_access_token(request):
     response = JsonResponse(data, status=status.HTTP_200_OK)
     response.set_cookie('jwt', data['access'])
     return response
-    # return JsonResponse(data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -179,15 +178,20 @@ def create_game(request):
         game_type = data['gameType']
         room_limit = data['roomLimits']
         password = data['password']
+        nick_name = data['nickname']
     except KeyError:
         return JsonResponse({
             'message': 'Bad Request'
         }, status=400)
     service = GameRoomSerializer()
     try:
-        response = service.create_game_room(user_id, room_name, game_type, room_limit, password)
+        response = service.create_game_room(user_id, room_name, game_type, room_limit, password, nick_name)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
+        error_message = [str(detail) for detail in e.detail][0]
+        if error_message == 'Duplicated nickname':
+            return JsonResponse({'error': error_message, 'code': 3000}, status=400)
+        else:
+            return JsonResponse({'error': e.detail, 'code': 3001}, status=400)
     return JsonResponse(response, safe=False, status=200)
 
 
@@ -231,12 +235,14 @@ def edit_my_page(request):
         error_messages = [str(detail) for detail in e.detail][0]
         if 'Can not Change by same name.' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1001}, status=status.HTTP_400_BAD_REQUEST)
-        if 'This username is already in use.' == error_messages:
+        elif 'This username is already in use.' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1002}, status=status.HTTP_400_BAD_REQUEST)
-        if 'Can not input whitespace' == error_messages:
+        elif 'Can not input whitespace' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1003}, status=status.HTTP_400_BAD_REQUEST)
-        if 'Can not input korean' == error_messages:
+        elif 'Can not input korean' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 1004}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return JsonResponse({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
     return JsonResponse('OK', safe=False, status=200)
 
 
