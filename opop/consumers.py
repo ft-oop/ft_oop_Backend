@@ -5,7 +5,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 import sys
-from .models.models import GameRoom, Message
+from .models.models import GameRoom, Message, UserProfile
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 online_users = set()
@@ -250,5 +250,5 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
     
     @database_sync_to_async
-    def get_user_profile(self, username):
-        return User.objects.get(username=username).profile
+    def get_user_profile(self, id):
+        return UserProfile.objects.get(oauth_id=id)

@@ -100,13 +100,13 @@ def get_user(request):
 @api_view(['GET'])
 def get_user_info(request):
     user_id = get_user_info_from_token(request)
-    user_name = request.GET.get('userName')
+    user_oauth_id = request.GET.get('userID')
     try:
         me = get_object_or_404(User, id=user_id).profile
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     try:
-        find_user = get_object_or_404(User, username=user_name).profile
+        find_user = get_object_or_404(UserProfile, oauth_id=user_oauth_id)
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     blocked = BlockRelation.objects.filter(blocked_by=me, blocked=find_user)
@@ -115,7 +115,7 @@ def get_user_info(request):
     user_info = UserInfoSerializer(find_user).data
 
     user_info['is_block'] = is_blocked
-    user_info['username'] = user_name
+    user_info['username'] = find_user.user.username
     user_info['is_friend'] = is_friend
     return JsonResponse(user_info, safe=False, status=200)
 
@@ -304,10 +304,10 @@ def remove_friend_in_ban_list(request):
 
 @api_view(['GET'])
 def get_chat_history(request):
-    receiver_name = request.GET.get('receiver')
-    sender_name = request.GET.get('sender')
-    sender_profile = get_object_or_404(User, username=sender_name).profile
-    receiver_profile = get_object_or_404(User, username=receiver_name).profile
+    receiver_id = request.GET.get('receiver')
+    sender_id = request.GET.get('sender')
+    sender_profile = get_object_or_404(UserProfile, oauth_id=sender_id)
+    receiver_profile = get_object_or_404(UserProfile, oauth_id=receiver_id)
     
     send_message = MessageSerializer(Message.objects.filter(sender=sender_profile, receiver=receiver_profile), many=True).data
     receive_message = MessageSerializer(Message.objects.filter(sender=receiver_profile, receiver=sender_profile), many=True).data
