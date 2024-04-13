@@ -271,21 +271,18 @@ class GameConsumer(AsyncWebsocketConsumer):
         # await self.send(text_data=json.dumps({"type": "user", "user": len(self.user)}))
         if len(self.user) == 1:
             await self.accept()
-            await self.send(text_data=json.dumps({"type": "user", "user": self.user[0][0].username}))
+            await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "user1 connect"},
+            )
+
         elif len(self.user) == 2:
             await self.accept()
-            await self.send(text_data=json.dumps({"type": "user", "user": self.user[1][0].username}))
+            await self.send(text_data=json.dumps({"type": "user", "user": "2"}))
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "user2 connect"},
+            )
 
-        # if not self.user1['activate']:
-        #     self.user1["activate"] = True
-        #     print("user1 conncet")
-        #     await self.accept()
-        #     await self.send(text_data=json.dumps({"type": "user", "user": "user1"}))
-        # elif not self.user2["activate"]:
-        #     self.user2["activate"] = True
-        #     print("user2 conncet")
-        #     await self.accept()
-        #     await self.send(text_data=json.dumps({"type": "user", "user": "user2"}))
     
     async def disconnect(self, close_code):
         """
@@ -296,29 +293,30 @@ class GameConsumer(AsyncWebsocketConsumer):
             if p[0] == player:
                 self.user.remove(p)
         # Leave room group
+        await self.channel_layer.group_send(
+            self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+        )
 
         await self.channel_layer.group_discard(
             self.room_group_name, self.channel_name
         )
-        await self.send(text_data=json.dumps({'type': 'disconnect', 'user': player.username}))
 
     async def receive(self, text_data):
         data = json.loads(text_data)
         try:
             if data['type'] == 'ready':
-                if self.user[0][0].username == data['user1']:
+                if data['user'] == "1":
                     self.user[0][1] = True
-                elif self.user[1][0].username == data['user2']:
+                elif data['user'] == "2":
                     self.user[1][1] = True
             if self.user[0][1] and self.user[1][1]:
                 self.game = True
                 self.user[0][1] = False
                 self.user[1][1] = False
-
                 await self.channel_layer.group_send(
                     self.room_group_name, {'type': 'start_message', 'message' : 'start'}
                 )
-            
+                
             if data['type'] == 'user_update':
                 if data['id'] == self.user[0][0].username:
                     await self.channel_layer.group_send(
