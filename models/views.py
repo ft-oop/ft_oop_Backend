@@ -175,6 +175,7 @@ def set_host_nick_name(request):
 @api_view(['POST'])
 def create_game(request):
     user_id = get_user_info_from_token(request)
+    print(user_id)
     try:
         data = json.loads(request.body)
         room_name = data['roomName']
@@ -209,16 +210,31 @@ def exit_game_room(request, room_id):
 
 
 @api_view(['POST'])
-def kick_user_in_game_room(request, room_id):
+def kick_user_in_dual_room(request, room_id):
+    user_id = get_user_info_from_token(request)
     try:
         data = json.loads(request.body)
-        host_name = data['hostName']
         kick_user = data['kickUser']
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=400)
     service = GameRoomSerializer()
     try:
-        service.kick_user_in_game_room(room_id, host_name, kick_user)
+        service.kick_user_in_dual_room(room_id, user_id, kick_user)
+    except ValidationError as e:
+        return JsonResponse({'error': e.detail}, status=404)
+    return JsonResponse('OK', safe=False, status=200)
+
+@api_view(['POST'])
+def kick_user_in_tournament_room(request, room_id):
+    user_id = get_user_info_from_token(request)
+    try:
+        data = json.loads(request.body)
+        kick_user = data['nickName']
+    except KeyError:
+        return JsonResponse({'error': 'Bad Request'}, status=400)
+    service = GameRoomSerializer()
+    try:
+        service.kick_user_in_tournament_room(room_id, user_id, kick_user)
     except ValidationError as e:
         return JsonResponse({'error': e.detail}, status=404)
     return JsonResponse('OK', safe=False, status=200)

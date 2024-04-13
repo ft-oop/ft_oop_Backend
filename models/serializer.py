@@ -55,14 +55,24 @@ class GameRoomSerializer(serializers.ModelSerializer):
         user.save()
 
     @transaction.atomic
-    def kick_user_in_game_room(self, room_id, host_name, user_name):
+    def kick_user_in_dual_room(self, room_id, user_id, user_name):
         game = get_object_or_404(GameRoom, id=room_id)
-        if game.get_host() != host_name:
+        user = get_object_or_404(User, id=user_id)
+        if game.get_host() != user.username:
             raise serializers.ValidationError("Invalid host name")
-        kick_user = get_object_or_404(UserProfile, nick_name=user_name)
+        kick_user = get_object_or_404(User, username=user_name).profile
         kick_user.game_room = None
         kick_user.save()
 
+    @transaction.atomic
+    def kick_user_in_tournament_room(self, room_id, user_id, nick_name):
+        game = get_object_or_404(GameRoom, id=room_id)
+        user = get_object_or_404(User, id=user_id)
+        if game.get_host() != user.username:
+            raise serializers.ValidationError("Invalid host name")
+        kick_user = get_object_or_404(UserProfile, nick_name=nick_name)
+        kick_user.game_room = None
+        kick_user.save()
 
 def get_42oauth_token(code):
     data = {
