@@ -141,9 +141,23 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({
                     'message': 'match canceled!'
                 }))
+            if data['message'] == 'random_match_clear':
+                room_id = data['room_id']
+                await clear_random_match_room(room_id)
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
+
+    @sync_to_async
+    def clear_random_match_room(self, room_id):
+        random_game_room = GameRoom.objects.filter(id=room_id)
+        users = UserProfile.objects.filter(gmae_room=random_game_room)
+        for user in users:
+            user.game_room = None
+            user.save()
+        random_game_room.delete()
+        random_game_room.save()
+
 
     @sync_to_async
     def get_room_list(self):
