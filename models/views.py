@@ -141,8 +141,15 @@ def enter_dual_room(request, room_id):
     try:
         data = service.enter_dual_room(user_id, room_id, password)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
-
+        error_message = [str(detail) for detail in e.detail][0]
+        if error_message == 'Invalid Room Type':
+            return JsonResponse({'error': e.detail, 'code': 4001}, status=400)
+        elif error_message == 'Limits exceeded':
+            return JsonResponse({'error': e.detail, 'code': 4002}, status=400)
+        elif error_message == 'Passwords do not match':
+            return JsonResponse({'error': e.detail, 'code': 4003}, status=400)
+        else:
+            return JsonResponse({'error': e.detail, 'code': 4005}, status=400)
     return JsonResponse(data, safe=False, status=200)
 
 
@@ -155,8 +162,17 @@ def enter_tournament_room(request, room_id):
     try:
         data = service.enter_tournament_room(nick_name, user_id, password, room_id)
     except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=400)
-    
+        error_message = [str(detail) for detail in e.detail][0]
+        if error_message == 'Invalid Room Type':
+            return JsonResponse({'error': e.detail, 'code': 4001}, status=400)
+        elif error_message == 'Limits exceeded':
+            return JsonResponse({'error': e.detail, 'code': 4002}, status=400)
+        elif error_message == 'Passwords do not match':
+            return JsonResponse({'error': e.detail, 'code': 4003}, status=400)
+        elif error_message == 'Duplicated nickname':
+            return JsonResponse({'error': e.detail, 'code': 4004}, status=400)
+        else:
+            return JsonResponse({'error': e.detail, 'code': 4005}, status=400)
     return JsonResponse(data, safe=False, status=200)
 
 @api_view(['POST'])
@@ -209,20 +225,20 @@ def exit_game_room(request, room_id):
     return JsonResponse('OK', safe=False, status=200)
 
 
-@api_view(['POST'])
-def kick_user_in_dual_room(request, room_id):
-    user_id = get_user_info_from_token(request)
-    try:
-        data = json.loads(request.body)
-        kick_user = data['kickUser']
-    except KeyError:
-        return JsonResponse({'error': 'Bad Request'}, status=400)
-    service = GameRoomSerializer()
-    try:
-        service.kick_user_in_dual_room(room_id, user_id, kick_user)
-    except ValidationError as e:
-        return JsonResponse({'error': e.detail}, status=404)
-    return JsonResponse('OK', safe=False, status=200)
+# @api_view(['POST'])
+# def kick_user_in_dual_room(request, room_id):
+#     user_id = get_user_info_from_token(request)
+#     try:
+#         data = json.loads(request.body)
+#         kick_user = data['kickUser']
+#     except KeyError:
+#         return JsonResponse({'error': 'Bad Request'}, status=400)
+#     service = GameRoomSerializer()
+#     try:
+#         service.kick_user_in_dual_room(room_id, user_id, kick_user)
+#     except ValidationError as e:
+#         return JsonResponse({'error': e.detail}, status=404)
+#     return JsonResponse('OK', safe=False, status=200)
 
 @api_view(['POST'])
 def kick_user_in_tournament_room(request, room_id):
