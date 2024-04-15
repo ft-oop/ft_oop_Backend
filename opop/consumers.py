@@ -11,6 +11,8 @@ from django.contrib.auth.models import User
 online_users = set()
 random_match_users = set()
 user_channel_names = {}
+connected_users = {}
+
 
 @database_sync_to_async
 def get_user_info_from_token(jwt):
@@ -20,54 +22,9 @@ def get_user_info_from_token(jwt):
 
     return user.profile
 
+
 class NoticeConsumer(AsyncWebsocketConsumer):
-
-    async def create_room_and_enter_users(self):
-        users = list(random_match_users)
-        user1, user2 = users[0], users[1]
-        room = await self.create_random_match_room(user1.username)
-        
-        self.room_group_name = f'chat_{room.id}'
-
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            user_channel_names[user1.id]
-        )
-
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            user_channel_names[user2.id]
-        )
-
-        target_users = [
-            {'name': user1.username, 'photo': user1.profile.picture},
-            {'name': user2.username, 'photo': user2.profile.picture}
-        ]
-
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'chat_message',
-                'message': json.dumps({
-                    'type': 'enter_room',
-                    'room_id': room.id,
-                    'target': target_users
-                })
-            }
-        )
-
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            user_channel_names[user1.id]
-        )
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            user_channel_names[user2.id]
-        )
-        
-        random_match_users.clear()
-
-    async def chat_message(self, event):  
+    async def chat_message(self, event):
         message = event['message']
 
         # Send message to WebSocket
@@ -76,13 +33,13 @@ class NoticeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         user = self.scope['user']
+        connected_users[user.id] = self.channel_name
         user_channel_names[user.id] = user.username
-        online_users.add(user) 
-        print(len(online_users))
+        online_users.add(user)
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
             'message': 'You are now connected!',
-            'userLine' : len(online_users)
+            'userLine': len(online_users)
         }))
 
     async def disconnect(self, close_code):
@@ -90,21 +47,21 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         # if self.user.username in user_channel_names:
         #     del user_channel_names[self.user.username]
         online_users.remove(self.scope['user'])
+        user_id = self.scope['user'].id
+        if user_id in connected_users:
+            del connected_users[user_id]
 
         await self.channel_layer.group_discard(
             "online_users",
             self.channel_name
         )
-    
+
     async def receive(self, text_data):
         print('received message: ' + text_data)
-        if (len(random_match_users) == 2):
-            await self.create_room_and_enter_users()
-            # self.enter_room
         try:
             data = json.loads(text_data)
             print('type is..... ' + data['message'])
-            
+
             if data['message'] == 'ping':
                 print(data['message'])
                 await self.send(text_data=json.dumps({'message': 'pong'}))
@@ -113,25 +70,48 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 room_list = await self.get_room_list()
 
                 await self.send(text_data=json.dumps({
-                    'room_list' : room_list
+                    'room_list': room_list
                 }))
-            
+
             if data['message'] == 'mypage':
                 friend_list = await self.get_friend_on_line(data['friends'])
 
                 await self.send(text_data=json.dumps(friend_list))
-            
+
             if data['message'] == 'random_match':
+                # async with self.lock:
                 user = self.scope['user']
-                user_profile = await sync_to_async(lambda: user.profile)()
                 random_match_users.add(user)
                 user_name = data['name']
-                if (len(random_match_users) == 2):
-                    await self.create_room_and_enter_users()
-                else:
-                    await self.send(text_data=json.dumps({
-                        'message': user_name + 'is inserted!'
-                    }))
+                print(user_name)
+                # 성공적으로 큐에 담겼다면, 메세지를 보냅니다.
+                await self.send(text_data=json.dumps({
+                    'message': user_name + 'is inserted!',
+                    'len': len(random_match_users)
+                }))
+                # 2명의 유저가 매칭 큐에 담겼다면, 방을 생성합니다.
+                # 이후 해당 유저들을 같은 소켓 룸에 담아두고, 메세지를 전송합니다.
+                if len(random_match_users) == 2:
+                    print('진입 시작!')
+                    try:
+                        # users_in_match = list(random_match_users)
+                        host = random_match_users.pop()
+                        guest = random_match_users.pop()
+
+                        random_match_room = await self.create_random_match_room(host)
+                        group_name = await self.generate_socket_room(random_match_room.id, host, guest)
+                        print('generate_socket_room clear!!!!!')
+                        message = await self.generate_users_information(host, guest)
+                        print('create_message_clear!')
+
+
+                        await self.send_message_to_room("enter_room", group_name, message)
+                    except Exception as e:
+                        print('에러 발생!', e)
+                        if random_match_room is not None:
+                            await database_sync_to_async(random_match_room.delete)()
+                        random_match_users.remove(host)
+                        random_match_users.remove(guest)
 
             if data['message'] == 'random_match_cancel':
                 user_profile = self.scope['user']
@@ -141,23 +121,36 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({
                     'message': 'match canceled!'
                 }))
+            if data['message'] == 'random_match_clear':
+                room_id = data['room_id']
+                await self.clear_random_match_room(room_id)
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
     @sync_to_async
+    def clear_random_match_room(self, room_id):
+        random_game_room = GameRoom.objects.filter(id=room_id)
+        users = UserProfile.objects.filter(gmae_room=random_game_room)
+        for user in users:
+            user.game_room = None
+            user.save()
+        random_game_room.delete()
+        random_game_room.save()
+
+    @sync_to_async
     def get_room_list(self):
         return [{
-        'id': room.get_room_id(),
-        'name': room.get_room_name(),
-        'type': room.get_room_type(),
-        'limits': room.get_limits(),
-        'password': room.get_pass_word(),
-        'host': room.get_host(),
-        'users': room.get_user(),
-        'participant': room.get_room_person()
-    } for room in GameRoom.objects.all()]
-    
+            'id': room.get_room_id(),
+            'name': room.get_room_name(),
+            'type': room.get_room_type(),
+            'limits': room.get_limits(),
+            'password': room.get_pass_word(),
+            'host': room.get_host(),
+            'users': room.get_user(),
+            'participant': room.get_room_person()
+        } for room in GameRoom.objects.all()]
+
     @sync_to_async
     def get_friend_on_line(self, friends):
         friends_status = {}
@@ -166,24 +159,78 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             user = User.objects.get(username=name)
             status = user in online_users
             friends_status[name] = status
-        
+
         return friends_status
-    
+
     @database_sync_to_async
-    def create_random_match_room(self, user1):
+    def create_random_match_room(self, host):
         return GameRoom.objects.create(
-                    room_name="랜덤 매치 방",
-                    room_type=0,
-                    limits=2,
-                    password="",
-                    host=user1
-                )
+            room_name="랜덤 매치 방",
+            room_type=0,
+            limits=2,
+            password="",
+            host=host.username
+        )
+
+    # @sync_to_async
+    async def generate_socket_room(self, room_id, host, guest):
+        group_name = f'random_match_{room_id}'
+        host_channel_name = connected_users[host.id]
+        guest_channel_name = connected_users[guest.id]
+        await self.channel_layer.group_add(
+            group_name,
+            host_channel_name
+        )
+        await self.channel_layer.group_add(
+            group_name,
+            guest_channel_name
+        )
+        print('방에 입장한 유저의 이름은..', self.channel_name)
+        return group_name
+
+    # @sync_to_async
+    async def send_message_to_room(self, type_input, group_name, message):
+        print('메세지 전송을 시작합니다...')
+        print(f"Sending message to {group_name}: {message}")
+        await self.channel_layer.group_send(
+            group_name,
+            {
+                'type': type_input,
+                'message': message
+            }
+        )
+        print(f"Message sent to {group_name} successfully")
+
+    async def enter_room(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type': 'enter_room',
+            'message': message
+        }))
+
+    def get_user_info(self, user):
+        return {
+            'name': user.username, 'photo': user.profile.picture
+        }
+
+    async def generate_users_information(self, host, guest):
+        host_info = await sync_to_async(self.get_user_info)(host)
+        guest_info = await sync_to_async(self.get_user_info)(guest)
+        return [host_info, guest_info]
+
+    async def chat_message(self, event):
+        message = event['message']
+
+        await self.send(text_data=json.dumps({
+            'message': message
+        }))
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
-        
+
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -207,7 +254,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender_profile = await self.get_user_profile(sender)
             receiver_profile = await self.get_user_profile(receiver)
             await self.save_message(sender_profile, receiver_profile, message)
-            
+
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -218,7 +265,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
-    
+
     async def chat_message(self, event):
         sender = event['sender']
         message = event['message']
