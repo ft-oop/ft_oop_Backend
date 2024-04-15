@@ -343,6 +343,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         for p in self.user:
             if p[0] == player:
                 self.user.remove(p)
+        await self.exit_game_room(player)
         # Leave room group
         await self.channel_layer.group_send(
             self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
@@ -394,3 +395,11 @@ class GameConsumer(AsyncWebsocketConsumer):
         skillpower = event['skillpower']
         await self.send(text_data=json.dumps({'type': message, 'user' : user, 'posY' : posY,
                                               'skill' : skill, 'skillpower' : skillpower}))
+
+    @database_sync_to_async
+    def exit_game_room(self, player):
+        game_room = player.profile.game_room
+        player.profile.game_room = None
+        player.profile.save()
+        if game_room.get_room_person() == 0:
+            game_room.delete()
