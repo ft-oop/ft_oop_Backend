@@ -373,12 +373,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                 if data['id'] == self.user[0][0].username:
                     await self.channel_layer.group_send(
                         self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user1',
-                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"], 'score' : data['score']}
                     )
                 elif data['id'] == self.user[1][0].username:
                     await self.channel_layer.group_send(
                         self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user2',
-                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"], 'score' : data['score']}
                     )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
@@ -392,9 +392,23 @@ class GameConsumer(AsyncWebsocketConsumer):
         user = event['user']
         posY = event['posY']
         skill = event['skill']
+        score = event['score']
         skillpower = event['skillpower']
         await self.send(text_data=json.dumps({'type': message, 'user' : user, 'posY' : posY,
-                                              'skill' : skill, 'skillpower' : skillpower}))
+                                              'skill' : skill, 'skillpower' : skillpower, 'score' : score}))
+    
+    async def picture_update(self, event):
+        message = event['message']
+        user_info = []
+        for u in self.user:
+            user_profile = u[0].profile
+            user_info.append({
+                'username': u.username,
+                'picture': user_profile.picture
+            })
+        await self.send(text_data=json.dumps({
+            
+        }))
 
     @database_sync_to_async
     def exit_game_room(self, player):
