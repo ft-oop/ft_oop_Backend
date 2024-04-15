@@ -1,6 +1,8 @@
 from rest_framework import routers
 from django.urls import path, include
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 
 router = routers.DefaultRouter()
 router.register('User', views.UserViewSet)
@@ -30,4 +32,4 @@ urlpatterns = [
     path('oauth/login/2FA', views.two_factor),
     path('oauth/login/2FA/email', views.send_email),
     path('jwt/reissue', views.reissue_access_token),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
