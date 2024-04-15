@@ -3,9 +3,9 @@ import json
 from django.contrib.auth.models import User
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from operator import itemgetter
 from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializer, MyPageSerializer, \
@@ -15,7 +15,7 @@ from .serializer import UserInfoSerializer, UserProfileSerializer, MatchSerializ
     UserSerializer
 from .models import UserProfile, BlockRelation, MatchHistory, FriendShip, GameRoom, Message
 from django.http import HttpResponse, JsonResponse
-
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.all()
@@ -87,14 +87,10 @@ def get_all_users(request):
 @api_view(['GET'])
 def get_user(request):
     user_id = get_user_info_from_token(request)
-    try:
-        user = get_object_or_404(User, id=user_id)
-    except RuntimeError:
-        return HttpResponse(status=404, message="User Not Found")
+    user = get_object_or_404(User, id=user_id)
 
     serializer = UserSerializer(user, many=False)
-    picture = user.profile.picture
-    data = serializer.generate_user_information(user, picture)
+    data = serializer.generate_user_information(user, user.profile)
 
     return JsonResponse(data, safe=False, status=200)
 
@@ -225,12 +221,15 @@ def kick_user_in_game_room(request, room_id):
 
 
 @api_view(['POST'])
+@parser_classes((MultiPartParser, FormParser))
 def edit_my_page(request):
     user_id = get_user_info_from_token(request)
     try:
-        data = json.loads(request.body)
-        new_name = data['newName']
-        picture = data['picture']
+        # data = json.loads(request.body)
+        new_name = request.data.get('newName')
+        print('name은 왔니?', new_name)
+        picture = request.FILES.get('picture')
+        print('request가 왔니?', picture)
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
     service = UserProfileSerializer()
