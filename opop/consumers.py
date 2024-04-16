@@ -289,20 +289,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return UserProfile.objects.get(oauth_id=id)
 
 class GameConsumer(AsyncWebsocketConsumer):
-    user1 = {
-        "ready" : False,
-    }
-    user2 = {
-        "ready" : False,
-    }
     user = []
     game = False
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(args, kwargs)
-    #     self.user = []
-    #     self.room_name = None
-    #     self.game = False
-    
+
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'room_{self.room_name}'
