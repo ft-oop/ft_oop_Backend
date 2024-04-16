@@ -415,7 +415,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 'username': u.username,
                 'picture': user_profile.get_picture()
             })
-        await self.send(text_data=json.dumps({'type': message}))
+        await self.send(text_data=json.dumps({'type': user_info}))
 
     @database_sync_to_async
     def get_host(self, player):
