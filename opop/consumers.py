@@ -92,9 +92,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 # 2명의 유저가 매칭 큐에 담겼다면, 방을 생성합니다.
                 # 이후 해당 유저들을 같은 소켓 룸에 담아두고, 메세지를 전송합니다.
                 if len(random_match_users) == 2:
-                    print('진입 시작!')
                     try:
-                        # users_in_match = list(random_match_users)
                         host = random_match_users.pop()
                         guest = random_match_users.pop()
 
@@ -184,12 +182,10 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             group_name,
             guest_channel_name
         )
-        print('방에 입장한 유저의 이름은..', self.channel_name)
         return group_name
 
     async def send_message_to_room(self, type_input, group_name, message):
         print('메세지 전송을 시작합니다...')
-        print(f"Sending message to {group_name}: {message}")
         await self.channel_layer.group_send(
             group_name,
             {
@@ -197,7 +193,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 'message': message
             }
         )
-        print(f"Message sent to {group_name} successfully")
 
     async def enter_room(self, event):
         message = event['message']
@@ -207,8 +202,12 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         }))
 
     def get_user_info(self, user):
+        if user.profile.image:
+            photo = user.profile.image.url
+        else:
+            photo = user.profile.picture
         return {
-            'name': user.username, 'photo': user.profile.picture
+            'name': user.username, 'photo': photo
         }
 
     async def generate_users_information(self, host, guest):
