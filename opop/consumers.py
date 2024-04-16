@@ -288,7 +288,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 class GameConsumer(AsyncWebsocketConsumer):
     user = []
-    game = False
+    game1 = False
+    game2 = False
 
     host = ''
 
@@ -332,7 +333,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 self.user.remove(p)
 
         # Leave room group
-        type = await self.get_host(player)
+        type = await get_host(player)
         if type == 'host':
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
@@ -380,7 +381,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                     if p[0] != winner:
                         loser = p[0]
                         break
-                await self.set_win_lose(winner, loser)
+                await set_win_lose(winner, loser)
                 await self.channel_layer.group_send(
                     self.room_group_name, {'type': 'start_message', 'message' : 'end_game'}
                 )
@@ -417,27 +418,85 @@ class GameConsumer(AsyncWebsocketConsumer):
             })
         await self.send(text_data=json.dumps({'type': user_info}))
 
-    @database_sync_to_async
-    def get_host(self, player):
-        if self.host == player.username:
-            return 'host'
-        return 'guest'
 
-    @database_sync_to_async
-    def set_win_lose(self, winner, loser):
-        winner.profile.total_win += 1
-        loser.profile.total_lose += 1
-        MatchHistory.objects.create(
-            opponent_name=loser.username,
-            user = winner.profile,
-            result = 'win',
-            game_type = 0,
-            match_date = datetime.now()
+class TournamentConsumer(AsyncWebsocketConsumer):
+    user = []
+    game = False
+ 
+    host = ''
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = f'room_{self.room_name}'
+        player = self.scope['user']
+        if len(self.user) == 4:
+            await self.send(text_data=json.dumps({'message': 'full room'}))
+        
+        self.user.append([player, False])
+        print(self.user)
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
         )
-        MatchHistory.objects.create(
-            opponent_name=winner.username,
-            user = loser.profile,
-            result = 'lose',
-            game_type = 0,
-            match_date = datetime.now()
+        
+        if len(self.user) == 1:
+            await self.accept()
+            await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "user1 connect"},
+            )
+            self.host = self.user[0][0].username
+        else:
+            num = len(self.user)
+            await self.accept()
+            await self.send(text_data=json.dumps({"type": "user", "user": num}))
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "user" + num + "connect"},
+            )
+
+    async def disconnect(self, close_code):
+        """
+        사용자와 WebSocket 연결이 끊겼을 때 호출
+        """
+        player = self.scope['user']
+        for p in self.user:
+            if p[0] == player:
+                self.user.remove(p)
+        
+        type = await get_host(player)
+        if type == 'host':
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+            )
+            
+        await self.channel_layer.group_discard(
+            self.room_group_name, self.channel_name
         )
+    
+    async def start_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({'type': message}))
+
+@database_sync_to_async
+def get_host(self, player):
+    if self.host == player.username:
+        return 'host'
+    return 'guest'
+
+@database_sync_to_async
+def set_win_lose(self, winner, loser):
+    winner.profile.total_win += 1
+    loser.profile.total_lose += 1
+    MatchHistory.objects.create(
+        opponent_name=loser.username,
+        user = winner.profile,
+        result = 'win',
+        game_type = 0,
+        match_date = datetime.now()
+    )
+    MatchHistory.objects.create(
+        opponent_name=winner.username,
+        user = loser.profile,
+        result = 'lose',
+        game_type = 0,
+        match_date = datetime.now()
+    )
