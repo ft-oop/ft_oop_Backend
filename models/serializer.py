@@ -388,13 +388,6 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         model = GameRoom
         fields = ["host_picture", ]
 
-    def get_host_picture(self, obj):
-        host_name = obj.get_host()
-        host = UserProfile.objects.filter(user_name=host_name)
-        if host.image:
-            return host.image.url
-        return host.picture
-
     @transaction.atomic
     def enter_dual_room(self, user_id, room_id, password):
         user = get_object_or_404(User, id=user_id).profile
@@ -409,7 +402,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         user.game_room = game_room
         user.save()
         host = get_object_or_404(User, username=game_room.get_host()).profile
-        return {"hostPicture": self.get_host_picture(host)}
+        return {"hostPicture": host.get_picture()}
 
 
 class TournamentRoomSerializer(serializers.ModelSerializer):
