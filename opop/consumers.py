@@ -5,8 +5,9 @@ from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 
-from models.models import GameRoom, Message, UserProfile
+from models.models import GameRoom, Message, UserProfile, MatchHistory
 from django.contrib.auth.models import User
+from datetime import datetime
 
 online_users = set()
 random_match_users = set()
@@ -373,6 +374,16 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(
                         self.room_group_name, {'type': 'ball_update', 'message' : 'ball_update', 'posX' : data['posX'], 'posY' : data['posY']}
                     )
+            if data['type'] == 'win':
+                winner = self.scope['user']
+                for p in self.user:
+                    if p[0] != winner:
+                        loser = p[0]
+                        break
+                await self.set_win_lose(winner, loser)
+                await self.channel_layer.group_send(
+                    self.room_group_name, {'type': 'start_message', 'message' : 'end_game'}
+                )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -413,3 +424,22 @@ class GameConsumer(AsyncWebsocketConsumer):
         if self.host == player.username:
             return 'host'
         return 'guest'
+
+    @database_sync_to_async
+    def set_win_lose(self, winner, loser):
+        winner.profile.total_win += 1
+        loser.profile.total_lose += 1
+        MatchHistory.objects.create(
+            opponent_name=loser.username,
+            user = winner.profile,
+            result = 'win',
+            game_type = 0,
+            match_date = datetime.now()
+        )
+        MatchHistory.objects.create(
+            opponent_name=winner.username,
+            user = loser.profile,
+            result = 'lose',
+            game_type = 0,
+            match_date = datetime.now()
+        )
