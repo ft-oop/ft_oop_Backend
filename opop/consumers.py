@@ -156,7 +156,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         friends_status = {}
         for friend in friends:
             name = friend.get('user_name')
-            user = User.objects.get(username=name).profile
+            user = User.objects.get(username=name)
             status = user in online_users
             friends_status[name] = status
 

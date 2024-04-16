@@ -55,14 +55,24 @@ class GameRoomSerializer(serializers.ModelSerializer):
         user.save()
 
     @transaction.atomic
-    def kick_user_in_game_room(self, room_id, host_name, user_name):
+    def kick_user_in_dual_room(self, room_id, user_id, user_name):
         game = get_object_or_404(GameRoom, id=room_id)
-        if game.get_host() != host_name:
+        user = get_object_or_404(User, id=user_id)
+        if game.get_host() != user.username:
             raise serializers.ValidationError("Invalid host name")
-        kick_user = get_object_or_404(UserProfile, nick_name=user_name)
+        kick_user = get_object_or_404(User, username=user_name).profile
         kick_user.game_room = None
         kick_user.save()
 
+    @transaction.atomic
+    def kick_user_in_tournament_room(self, room_id, user_id, nick_name):
+        game = get_object_or_404(GameRoom, id=room_id)
+        user = get_object_or_404(User, id=user_id)
+        if game.get_host() != user.username:
+            raise serializers.ValidationError("Invalid host name")
+        kick_user = get_object_or_404(UserProfile, nick_name=nick_name)
+        kick_user.game_room = None
+        kick_user.save()
 
 def get_42oauth_token(code):
     data = {
@@ -385,10 +395,11 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
     def enter_dual_room(self, user_id, room_id, password):
         user = get_object_or_404(User, id=user_id).profile
         game_room = get_object_or_404(GameRoom, id=room_id)
+        participant = game_room.get_room_person()
         if game_room.room_type != 0:
             raise serializers.ValidationError('Invalid Room Type')
-        if game_room.limits + 1 < game_room.limits:
-            raise serializers.ValidationError('OverFlow limits')
+        if participant + 1 > game_room.limits:
+            raise serializers.ValidationError('Limits exceeded')
         if game_room.password != "" and game_room.password != password:
             raise serializers.ValidationError('Passwords do not match')
         user.game_room = game_room
