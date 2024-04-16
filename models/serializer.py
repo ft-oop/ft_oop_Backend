@@ -40,19 +40,19 @@ class GameRoomSerializer(serializers.ModelSerializer):
         return {'game_type': game_type, 'room_id': game.get_room_id()}
 
     @transaction.atomic
-    def exit_game_room(self, user_name, room_id):
+    def exit_game_room(self, user_id, room_id):
         game = get_object_or_404(GameRoom, id=room_id)
-        user = User.objects.get(username=user_name)
-        users_in_game = UserProfile.objects.filter(game_room=game)
-
+        user = User.objects.get(id=user_id)
+        print(user.username)
         if game.get_host() == user.username:
+            users_in_game = UserProfile.objects.filter(game_room=game)
             for guest in users_in_game:
                 guest.game_room = None
                 guest.save()
             game.delete()
             return
         user.profile.game_room = None
-        user.save()
+        user.profile.save()
 
     @transaction.atomic
     def kick_user_in_dual_room(self, room_id, user_id, user_name):
@@ -175,26 +175,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update_user_info(self, user_id, user_name, picture):
-        korean = re.compile('[ㄱ-ㅎ가-힣]+')
-        if not user_name:
-            return
-        if korean.search(user_name):
-            raise serializers.ValidationError("Can not input korean")
         user = get_object_or_404(User, id=user_id)
-        if not user_name.strip():
-            raise serializers.ValidationError("Can not input whitespace")
-        if user.username == user_name:
-            raise serializers.ValidationError("Can not Change by same name.")
-        if user_name and user_name != "":
-            if not User.objects.filter(username=user_name).exists():
-                user.username = user_name
-            else:
-                raise serializers.ValidationError("This username is already in use.")
+        if user_name:
+            if not user_name.strip():
+                raise serializers.ValidationError("Can not input whitespace")
+            if user.username == user_name:
+                raise serializers.ValidationError("Can not Change by same name.")
+            if user_name and user_name != "":
+                if not User.objects.filter(username=user_name).exists():
+                    user.username = user_name
+                else:
+                    raise serializers.ValidationError("This username is already in use.")
         if picture:
-            user.profile.picture = picture
+            user.profile.image = picture
         user.save()
         user.profile.save()
-    
+
     @transaction.atomic
     def set_nick_name(self, user_id, nick_name):
         user = get_object_or_404(User, id=user_id).profile
@@ -209,9 +205,15 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email']
 
-    def generate_user_information(self, user, picture):
+    def generate_user_information(self, user, user_profile):
+        if user_profile.image:
+            picture = user_profile.image.url
+            print('picture is image!!!! ', picture)
+        else:
+            picture = user_profile.picture
+            print('picture is url!!!!', picture)
         return {
-            'id':user.id,
+            'id': user.id,
             'username': user.username,
             'email': user.email,
             'picture': picture
@@ -275,10 +277,16 @@ class MatchSerializer(serializers.ModelSerializer):
 
 class UserInfoSerializer(serializers.ModelSerializer):
     match_history = MatchSerializer(many=True, read_only=True)
+    picture = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = ['picture', 'total_win', 'total_lose', 'match_history',]
+
+    def get_picture(self, obj):
+        if obj.image:
+            return obj.image.url
+        return obj.picture
 
 
 class FriendSerializer(serializers.ModelSerializer):
@@ -351,19 +359,25 @@ class MyPageSerializer(serializers.ModelSerializer):
     ban_list = serializers.SerializerMethodField()
     username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='oauth_id', read_only=True)
+    picture = serializers.SerializerMethodField()
     class Meta:
         model = UserProfile
         fields = ['user_id', 'username', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
-    
+
+    def get_picture(self, obj):
+        if obj.image:
+            return obj.image.url
+        return obj.picture
+      
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
-        friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in
+        friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': self.get_picture(friend.friend)} for friend in
                        friends]
         return friend_list
 
     def get_ban_list(self, obj):
         bans = BlockRelation.objects.filter(blocked_by=obj)
-        ban_list = [{'user_name': ban.blocked.user.username, 'picture': ban.blocked.picture} for ban in bans]
+        ban_list = [{'user_name': ban.blocked.user.username, 'picture': self.get_picture(ban.blocked)} for ban in bans]
         return ban_list
 
 
@@ -377,8 +391,9 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
     def get_host_picture(self, obj):
         host_name = obj.get_host()
         host = UserProfile.objects.filter(user_name=host_name)
-        host_picture = host.get_picture()
-        return host_picture
+        if host.image:
+            return host.image.url
+        return host.picture
 
     @transaction.atomic
     def enter_dual_room(self, user_id, room_id, password):
@@ -394,7 +409,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         user.game_room = game_room
         user.save()
         host = get_object_or_404(User, username=game_room.get_host()).profile
-        return {"hostPicture": host.picture}
+        return {"hostPicture": self.get_host_picture(host)}
 
 
 class TournamentRoomSerializer(serializers.ModelSerializer):
@@ -412,15 +427,16 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
     def get_host_picture(self, obj):
         host_name = obj.get_host()
         host = UserProfile.objects.filter(user_name=host_name)
-        host_picture = host.get_picture()
-        return host_picture
+        if host.image:
+            return host.image.url
+        return host.picture
 
     def get_guest_list(self, obj):
         users = UserProfile.objects.filter(game_room=obj)
         guest_list = [{'nic_name': user.get_nick_name(), 'picture': user.get_picture()} for user in users]
         return guest_list
 
-    def enter_tournament_room(self, nick_name, user_name, password, room_id):
+    def enter_tournament_room(self, nick_name, user_id, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
         users_in_game = UserProfile.objects.filter(game_room=game_room)
         if game_room.room_type != 1:
@@ -429,15 +445,15 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
-        if UserProfile.objects.filter(nick_name=nick_name).exists():
+        user = get_object_or_404(User, id=user_id).profile
+        if UserProfile.objects.filter(nick_name=nick_name).exists() and user.nick_name != nick_name:
             raise serializers.ValidationError("Duplicated nickname")
-        user = get_object_or_404(User, username=user_name).profile
         user.nick_name = nick_name
         user.game_room = game_room
 
         host = get_object_or_404(User, username=game_room.get_host()).profile
         
-        host_picture = host.get_picture()
+        host_picture = self.get_host_picture(host)
 
         guest_list = self.get_guest_list(game_room)
         user.save()
@@ -448,9 +464,6 @@ class MessageSerializer(serializers.ModelSerializer):
     sender_id = serializers.SerializerMethodField()
     receiver_id = serializers.SerializerMethodField()
 
-    # class Meta:
-    #     model = Message
-    #     fields = ['sender_name', 'sender_picture', 'sender_history', 'receiver_history' ]
     class Meta:
         model = Message
         fields = ['sender_id', 'receiver_id', 'message', 'timestamp']
@@ -465,9 +478,6 @@ class MessageSerializer(serializers.ModelSerializer):
         return receiver_id
     def get_receiver_picture(self, obj):
         return obj.receiver.picture
-
-
-
 
 def get_user_info_from_token(request):
     header = request.META.get("HTTP_AUTHORIZATION")

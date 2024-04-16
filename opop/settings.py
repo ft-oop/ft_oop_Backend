@@ -1,9 +1,9 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -16,7 +16,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-
 # Application definition
 
 THIRD_PARTIES = [
@@ -28,17 +27,17 @@ THIRD_PARTIES = [
 ]
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'corsheaders',
-    'opop',
-    'models',
-    'channels',
-] + THIRD_PARTIES
+                     'django.contrib.admin',
+                     'django.contrib.auth',
+                     'django.contrib.contenttypes',
+                     'django.contrib.sessions',
+                     'django.contrib.messages',
+                     'django.contrib.staticfiles',
+                     'corsheaders',
+                     'opop',
+                     'models',
+                     'channels',
+                 ] + THIRD_PARTIES
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -122,7 +121,6 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -141,7 +139,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
@@ -153,13 +150,11 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -169,7 +164,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CLIENT_ID = 'u-s4t2ud-80593f2ca92d09f7d42166593b99cc335953a89bc775c0596ac93a9eb3bc4c44'
 CLIENT_SECRET = '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'
 
-LOGIN_REDIRECT_URL = 'http://localhost/login'
+
+LOGIN_REDIRECT_URL = 'http://10.19.221.56/login'
+
 
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
 FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
@@ -185,6 +182,12 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:80',
     'http://localhost:8000',
+
+    'http://10.19.221.56:8000'
+
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

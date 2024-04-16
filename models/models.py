@@ -61,11 +61,14 @@ class UserProfile(models.Model):
     game_room = models.ForeignKey(GameRoom, on_delete=models.SET_NULL, null=True, related_name='users')
 
     # User 정보에서 이동
-    picture = models.TextField()
+    picture = models.URLField()
+    image = models.ImageField(upload_to='profile_images', blank=True, null=True)
     is_registered = models.BooleanField(default=False)
     # on_line = models.BooleanField(default=False)
 
     def get_picture(self):
+        if self.image:
+            return self.image.url
         return self.picture
 
     def get_total_win(self):

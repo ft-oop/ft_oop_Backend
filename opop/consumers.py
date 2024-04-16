@@ -92,9 +92,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 # 2명의 유저가 매칭 큐에 담겼다면, 방을 생성합니다.
                 # 이후 해당 유저들을 같은 소켓 룸에 담아두고, 메세지를 전송합니다.
                 if len(random_match_users) == 2:
-                    print('진입 시작!')
                     try:
-                        # users_in_match = list(random_match_users)
                         host = random_match_users.pop()
                         guest = random_match_users.pop()
 
@@ -172,7 +170,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             host=host.username
         )
 
-    # @sync_to_async
     async def generate_socket_room(self, room_id, host, guest):
         group_name = f'random_match_{room_id}'
         host_channel_name = connected_users[host.id]
@@ -185,13 +182,10 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             group_name,
             guest_channel_name
         )
-        print('방에 입장한 유저의 이름은..', self.channel_name)
         return group_name
 
-    # @sync_to_async
     async def send_message_to_room(self, type_input, group_name, message):
         print('메세지 전송을 시작합니다...')
-        print(f"Sending message to {group_name}: {message}")
         await self.channel_layer.group_send(
             group_name,
             {
@@ -199,7 +193,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 'message': message
             }
         )
-        print(f"Message sent to {group_name} successfully")
 
     async def enter_room(self, event):
         message = event['message']
@@ -209,8 +202,12 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         }))
 
     def get_user_info(self, user):
+        if user.profile.image:
+            photo = user.profile.image.url
+        else:
+            photo = user.profile.picture
         return {
-            'name': user.username, 'photo': user.profile.picture
+            'name': user.username, 'photo': photo
         }
 
     async def generate_users_information(self, host, guest):
@@ -292,10 +289,11 @@ class GameConsumer(AsyncWebsocketConsumer):
     user = []
     game = False
 
+    host = ''
+
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'room_{self.room_name}'
-        print(self.room_name)
         player = self.scope['user']
         if len(self.user) > 2:
             await self.send(text_data=json.dumps({'message': 'full room'}))
@@ -307,14 +305,13 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         
-        # await self.accept()
-        # await self.send(text_data=json.dumps({"type": "user", "user": len(self.user)}))
         if len(self.user) == 1:
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'start_message', 'message': "user1 connect"},
             )
+            self.host = self.user[0][0].username
 
         elif len(self.user) == 2:
             await self.accept()
@@ -332,12 +329,14 @@ class GameConsumer(AsyncWebsocketConsumer):
         for p in self.user:
             if p[0] == player:
                 self.user.remove(p)
-        await self.exit_game_room(player)
-        # Leave room group
-        await self.channel_layer.group_send(
-            self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
-        )
 
+        # Leave room group
+        type = await self.get_host(player)
+        if type == 'host':
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+            )
+            
         await self.channel_layer.group_discard(
             self.room_group_name, self.channel_name
         )
@@ -410,9 +409,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         }))
 
     @database_sync_to_async
-    def exit_game_room(self, player):
-        game_room = player.profile.game_room
-        player.profile.game_room = None
-        player.profile.save()
-        if game_room.get_room_person() == 0:
-            game_room.delete()
+    def get_host(self, player):
+        if self.host == player.username:
+            return 'host'
+        return 'guest'
