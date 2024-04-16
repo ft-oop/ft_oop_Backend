@@ -67,6 +67,8 @@ class UserProfile(models.Model):
     # on_line = models.BooleanField(default=False)
 
     def get_picture(self):
+        if self.image:
+            return self.image.url
         return self.picture
 
     def get_total_win(self):

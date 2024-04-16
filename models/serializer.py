@@ -175,11 +175,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update_user_info(self, user_id, user_name, picture):
-        korean = re.compile('[ㄱ-ㅎ가-힣]+')
         user = get_object_or_404(User, id=user_id)
         if user_name:
-            if korean.search(user_name):
-                raise serializers.ValidationError("Can not input korean")
             if not user_name.strip():
                 raise serializers.ValidationError("Can not input whitespace")
             if user.username == user_name:
@@ -374,13 +371,13 @@ class MyPageSerializer(serializers.ModelSerializer):
       
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
-        friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in
+        friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': self.get_picture(friend.friend)} for friend in
                        friends]
         return friend_list
 
     def get_ban_list(self, obj):
         bans = BlockRelation.objects.filter(blocked_by=obj)
-        ban_list = [{'user_name': ban.blocked.user.username, 'picture': ban.blocked.picture} for ban in bans]
+        ban_list = [{'user_name': ban.blocked.user.username, 'picture': self.get_picture(ban.blocked)} for ban in bans]
         return ban_list
 
 
@@ -394,8 +391,9 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
     def get_host_picture(self, obj):
         host_name = obj.get_host()
         host = UserProfile.objects.filter(user_name=host_name)
-        host_picture = host.get_picture()
-        return host_picture
+        if host.image:
+            return host.image.url
+        return host.picture
 
     @transaction.atomic
     def enter_dual_room(self, user_id, room_id, password):
@@ -411,7 +409,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
         user.game_room = game_room
         user.save()
         host = get_object_or_404(User, username=game_room.get_host()).profile
-        return {"hostPicture": host.picture}
+        return {"hostPicture": self.get_host_picture(host)}
 
 
 class TournamentRoomSerializer(serializers.ModelSerializer):
@@ -429,8 +427,9 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
     def get_host_picture(self, obj):
         host_name = obj.get_host()
         host = UserProfile.objects.filter(user_name=host_name)
-        host_picture = host.get_picture()
-        return host_picture
+        if host.image:
+            return host.image.url
+        return host.picture
 
     def get_guest_list(self, obj):
         users = UserProfile.objects.filter(game_room=obj)
@@ -454,7 +453,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
 
         host = get_object_or_404(User, username=game_room.get_host()).profile
         
-        host_picture = host.get_picture()
+        host_picture = self.get_host_picture(host)
 
         guest_list = self.get_guest_list(game_room)
         user.save()
@@ -465,9 +464,6 @@ class MessageSerializer(serializers.ModelSerializer):
     sender_id = serializers.SerializerMethodField()
     receiver_id = serializers.SerializerMethodField()
 
-    # class Meta:
-    #     model = Message
-    #     fields = ['sender_name', 'sender_picture', 'sender_history', 'receiver_history' ]
     class Meta:
         model = Message
         fields = ['sender_id', 'receiver_id', 'message', 'timestamp']
@@ -482,9 +478,6 @@ class MessageSerializer(serializers.ModelSerializer):
         return receiver_id
     def get_receiver_picture(self, obj):
         return obj.receiver.picture
-
-
-
 
 def get_user_info_from_token(request):
     header = request.META.get("HTTP_AUTHORIZATION")
