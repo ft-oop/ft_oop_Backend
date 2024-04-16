@@ -172,7 +172,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             host=host.username
         )
 
-    # @sync_to_async
     async def generate_socket_room(self, room_id, host, guest):
         group_name = f'random_match_{room_id}'
         host_channel_name = connected_users[host.id]
@@ -188,7 +187,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         print('방에 입장한 유저의 이름은..', self.channel_name)
         return group_name
 
-    # @sync_to_async
     async def send_message_to_room(self, type_input, group_name, message):
         print('메세지 전송을 시작합니다...')
         print(f"Sending message to {group_name}: {message}")
@@ -343,7 +341,12 @@ class GameConsumer(AsyncWebsocketConsumer):
         for p in self.user:
             if p[0] == player:
                 self.user.remove(p)
-        await self.exit_game_room(player)
+        msg = await self.exit_game_room(player)
+        if msg == 'host_exit':
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "host exists game room"}
+            )
+        
         # Leave room group
         await self.channel_layer.group_send(
             self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
@@ -399,7 +402,15 @@ class GameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def exit_game_room(self, player):
         game_room = player.profile.game_room
+        if game_room is None:
+            return None
+        host = game_room.host
+        if player.username == host:
+            game_room.delete()
+            self.user.clear()
+            return 'host_exit'
         player.profile.game_room = None
         player.profile.save()
         if game_room.get_room_person() == 0:
             game_room.delete()
+        return 'player_exit'
