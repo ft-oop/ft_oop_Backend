@@ -165,7 +165,7 @@ CLIENT_ID = 'u-s4t2ud-80593f2ca92d09f7d42166593b99cc335953a89bc775c0596ac93a9eb3
 CLIENT_SECRET = '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'
 
 
-LOGIN_REDIRECT_URL = 'http://10.19.221.56/login'
+LOGIN_REDIRECT_URL = 'http://localhost/login'
 
 
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
@@ -183,7 +183,7 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:80',
     'http://localhost:8000',
 
-    'http://10.19.221.56:8000'
+    #'http://10.19.221.56:8000'
 
 ]
 
