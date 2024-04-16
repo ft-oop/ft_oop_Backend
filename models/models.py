@@ -105,7 +105,7 @@ class MatchHistory(models.Model):
     match_date = models.DateField()
 
     def __str__(self):
-        return f"{self.user.user_name} vs. {self.opponent_name} - {self.result}"
+        return f"{self.user.user.username} vs. {self.opponent_name} - {self.result}"
 
     def get_opponent_name(self):
         return self.opponent_name
