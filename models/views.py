@@ -364,6 +364,6 @@ def get_chat_history(request):
 
     message_list = sorted(message_list, key=itemgetter('timestamp'))
     return JsonResponse(
-        {'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : message_list},
+        {'sender_picture' : sender_profile.get_picture(), 'receiver_picture' : receiver_profile.get_picture(), 'message_list' : message_list},
         safe=False, status=200
         )
