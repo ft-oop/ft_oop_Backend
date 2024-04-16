@@ -286,16 +286,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return UserProfile.objects.get(oauth_id=id)
 
 class GameConsumer(AsyncWebsocketConsumer):
-    user1 = {
-        "ready" : False,
-    }
-    user2 = {
-        "ready" : False,
-    }
     user = []
     game = False
+
     host = ''
-    
+
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'room_{self.room_name}'
@@ -348,6 +343,7 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        
         try:
             if data['type'] == 'ready':
                 if data['user'] == "1":
@@ -363,15 +359,19 @@ class GameConsumer(AsyncWebsocketConsumer):
                 )
                 
             if data['type'] == 'user_update':
-                if data['id'] == self.user[0][0].username:
+                if data['id'] == '1':
                     await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user1',
-                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : '1',
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"], 'score' : data['score']}
                     )
-                elif data['id'] == self.user[1][0].username:
+                elif data['id'] == '2':
                     await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user2',
-                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : '2',
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"], 'score' : data['score']}
+                    )
+            if data['type'] == 'ball_update':
+                await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'ball_update', 'message' : 'ball_update', 'posX' : data['posX'], 'posY' : data['posY']}
                     )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
@@ -385,9 +385,28 @@ class GameConsumer(AsyncWebsocketConsumer):
         user = event['user']
         posY = event['posY']
         skill = event['skill']
+        score = event['score']
         skillpower = event['skillpower']
         await self.send(text_data=json.dumps({'type': message, 'user' : user, 'posY' : posY,
-                                              'skill' : skill, 'skillpower' : skillpower}))
+                                              'skill' : skill, 'skillpower' : skillpower, 'score' : score}))
+    async def ball_update(self, event):
+        message = event['message']
+        posX = event['posX']
+        posY = event['posY']
+        await self.send(text_data=json.dumps({'type': message, 'posY' : posY, 'posX' : posX}))
+    
+    async def picture_update(self, event):
+        message = event['message']
+        user_info = []
+        for u in self.user:
+            user_profile = u[0].profile
+            user_info.append({
+                'username': u.username,
+                'picture': user_profile.picture
+            })
+        await self.send(text_data=json.dumps({
+            
+        }))
 
     @database_sync_to_async
     def get_host(self, player):
