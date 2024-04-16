@@ -431,7 +431,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         guest_list = [{'nic_name': user.get_nick_name(), 'picture': user.get_picture()} for user in users]
         return guest_list
 
-    def enter_tournament_room(self, nick_name, user_name, password, room_id):
+    def enter_tournament_room(self, nick_name, user_id, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
         users_in_game = UserProfile.objects.filter(game_room=game_room)
         if game_room.room_type != 1:
@@ -442,7 +442,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Limits exceeded")
         if UserProfile.objects.filter(nick_name=nick_name).exists():
             raise serializers.ValidationError("Duplicated nickname")
-        user = get_object_or_404(User, username=user_name).profile
+        user = get_object_or_404(User, id=user_id).profile
         user.nick_name = nick_name
         user.game_room = game_room
 
