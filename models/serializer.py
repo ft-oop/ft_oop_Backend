@@ -176,25 +176,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update_user_info(self, user_id, user_name, picture):
         korean = re.compile('[ㄱ-ㅎ가-힣]+')
-        if not user_name:
-            return
-        if korean.search(user_name):
-            raise serializers.ValidationError("Can not input korean")
         user = get_object_or_404(User, id=user_id)
-        if not user_name.strip():
-            raise serializers.ValidationError("Can not input whitespace")
-        if user.username == user_name:
-            raise serializers.ValidationError("Can not Change by same name.")
-        if user_name and user_name != "":
-            if not User.objects.filter(username=user_name).exists():
-                user.username = user_name
-            else:
-                raise serializers.ValidationError("This username is already in use.")
+        if user_name:
+            if korean.search(user_name):
+                raise serializers.ValidationError("Can not input korean")
+            if not user_name.strip():
+                raise serializers.ValidationError("Can not input whitespace")
+            if user.username == user_name:
+                raise serializers.ValidationError("Can not Change by same name.")
+            if user_name and user_name != "":
+                if not User.objects.filter(username=user_name).exists():
+                    user.username = user_name
+                else:
+                    raise serializers.ValidationError("This username is already in use.")
         if picture:
-            user.profile.picture = picture
+            user.profile.image = picture
         user.save()
         user.profile.save()
-    
+
     @transaction.atomic
     def set_nick_name(self, user_id, nick_name):
         user = get_object_or_404(User, id=user_id).profile
@@ -209,9 +208,15 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email']
 
-    def generate_user_information(self, user, picture):
+    def generate_user_information(self, user, user_profile):
+        if user_profile.image:
+            picture = user_profile.image.url
+            print('picture is image!!!! ', picture)
+        else:
+            picture = user_profile.picture
+            print('picture is url!!!!', picture)
         return {
-            'id':user.id,
+            'id': user.id,
             'username': user.username,
             'email': user.email,
             'picture': picture
@@ -351,10 +356,16 @@ class MyPageSerializer(serializers.ModelSerializer):
     ban_list = serializers.SerializerMethodField()
     username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='oauth_id', read_only=True)
+    picture = serializers.SerializerMethodField()
     class Meta:
         model = UserProfile
         fields = ['user_id', 'username', 'picture', 'total_win', 'total_lose', 'friends', 'ban_list']
-    
+
+    def get_picture(self, obj):
+        if obj.image:
+            return obj.image.url
+        return obj.picture
+      
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
         friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in
