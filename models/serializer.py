@@ -40,19 +40,19 @@ class GameRoomSerializer(serializers.ModelSerializer):
         return {'game_type': game_type, 'room_id': game.get_room_id()}
 
     @transaction.atomic
-    def exit_game_room(self, user_name, room_id):
+    def exit_game_room(self, user_id, room_id):
         game = get_object_or_404(GameRoom, id=room_id)
-        user = User.objects.get(username=user_name)
-        users_in_game = UserProfile.objects.filter(game_room=game)
-
+        user = User.objects.get(id=user_id)
+        print(user.username)
         if game.get_host() == user.username:
+            users_in_game = UserProfile.objects.filter(game_room=game)
             for guest in users_in_game:
                 guest.game_room = None
                 guest.save()
             game.delete()
             return
         user.profile.game_room = None
-        user.save()
+        user.profile.save()
 
     @transaction.atomic
     def kick_user_in_dual_room(self, room_id, user_id, user_name):
@@ -440,9 +440,9 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
-        if UserProfile.objects.filter(nick_name=nick_name).exists():
-            raise serializers.ValidationError("Duplicated nickname")
         user = get_object_or_404(User, id=user_id).profile
+        if UserProfile.objects.filter(nick_name=nick_name).exists() and user.nick_name != nick_name:
+            raise serializers.ValidationError("Duplicated nickname")
         user.nick_name = nick_name
         user.game_room = game_room
 

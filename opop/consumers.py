@@ -294,16 +294,11 @@ class GameConsumer(AsyncWebsocketConsumer):
     }
     user = []
     game = False
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(args, kwargs)
-    #     self.user = []
-    #     self.room_name = None
-    #     self.game = False
+    host = ''
     
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'room_{self.room_name}'
-        print(self.room_name)
         player = self.scope['user']
         if len(self.user) > 2:
             await self.send(text_data=json.dumps({'message': 'full room'}))
@@ -315,14 +310,13 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         
-        # await self.accept()
-        # await self.send(text_data=json.dumps({"type": "user", "user": len(self.user)}))
         if len(self.user) == 1:
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'start_message', 'message': "user1 connect"},
             )
+            self.host = self.user[0][0].username
 
         elif len(self.user) == 2:
             await self.accept()
@@ -340,17 +334,14 @@ class GameConsumer(AsyncWebsocketConsumer):
         for p in self.user:
             if p[0] == player:
                 self.user.remove(p)
-        msg = await self.exit_game_room(player)
-        if msg == 'host_exit':
-            await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'start_message', 'message': "host exists game room"}
-            )
-        
-        # Leave room group
-        await self.channel_layer.group_send(
-            self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
-        )
 
+        # Leave room group
+        type = await self.get_host(player)
+        if type == 'host':
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+            )
+            
         await self.channel_layer.group_discard(
             self.room_group_name, self.channel_name
         )
@@ -399,17 +390,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                                               'skill' : skill, 'skillpower' : skillpower}))
 
     @database_sync_to_async
-    def exit_game_room(self, player):
-        game_room = player.profile.game_room
-        if game_room is None:
-            return None
-        host = game_room.host
-        if player.username == host:
-            game_room.delete()
-            self.user.clear()
-            return 'host_exit'
-        player.profile.game_room = None
-        player.profile.save()
-        if game_room.get_room_person() == 0:
-            game_room.delete()
-        return 'player_exit'
+    def get_host(self, player):
+        if self.host == player.username:
+            return 'host'
+        return 'guest'
