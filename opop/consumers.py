@@ -172,7 +172,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             host=host.username
         )
 
-    # @sync_to_async
     async def generate_socket_room(self, room_id, host, guest):
         group_name = f'random_match_{room_id}'
         host_channel_name = connected_users[host.id]
@@ -188,7 +187,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         print('방에 입장한 유저의 이름은..', self.channel_name)
         return group_name
 
-    # @sync_to_async
     async def send_message_to_room(self, type_input, group_name, message):
         print('메세지 전송을 시작합니다...')
         print(f"Sending message to {group_name}: {message}")
@@ -279,12 +277,140 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, sender_profile, receiver_profile, message):
-        message_instance = Message.objects.create(
-            sender=sender_profile,
-            receiver=receiver_profile,
-            message=message
-        )
-
+         message_instance = Message.objects.create(
+                    sender=sender_profile,
+                    receiver=receiver_profile,
+                    message=message
+                )
     @database_sync_to_async
     def get_user_profile(self, id):
         return UserProfile.objects.get(oauth_id=id)
+
+class GameConsumer(AsyncWebsocketConsumer):
+    user1 = {
+        "ready" : False,
+    }
+    user2 = {
+        "ready" : False,
+    }
+    user = []
+    game = False
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(args, kwargs)
+    #     self.user = []
+    #     self.room_name = None
+    #     self.game = False
+    
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = f'room_{self.room_name}'
+        print(self.room_name)
+        player = self.scope['user']
+        if len(self.user) > 2:
+            await self.send(text_data=json.dumps({'message': 'full room'}))
+        
+        self.user.append([player, False])
+        print(self.user)
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        
+        # await self.accept()
+        # await self.send(text_data=json.dumps({"type": "user", "user": len(self.user)}))
+        if len(self.user) == 1:
+            await self.accept()
+            await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "user1 connect"},
+            )
+
+        elif len(self.user) == 2:
+            await self.accept()
+            await self.send(text_data=json.dumps({"type": "user", "user": "2"}))
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "user2 connect"},
+            )
+
+    
+    async def disconnect(self, close_code):
+        """
+        사용자와 WebSocket 연결이 끊겼을 때 호출
+        """
+        player = self.scope['user']
+        for p in self.user:
+            if p[0] == player:
+                self.user.remove(p)
+        msg = await self.exit_game_room(player)
+        if msg == 'host_exit':
+            await self.channel_layer.group_send(
+                self.room_group_name, {'type': 'start_message', 'message': "host exists game room"}
+            )
+        
+        # Leave room group
+        await self.channel_layer.group_send(
+            self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+        )
+
+        await self.channel_layer.group_discard(
+            self.room_group_name, self.channel_name
+        )
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        try:
+            if data['type'] == 'ready':
+                if data['user'] == "1":
+                    self.user[0][1] = True
+                elif data['user'] == "2":
+                    self.user[1][1] = True
+            if self.user[0][1] and self.user[1][1]:
+                self.game = True
+                self.user[0][1] = False
+                self.user[1][1] = False
+                await self.channel_layer.group_send(
+                    self.room_group_name, {'type': 'start_message', 'message' : 'start'}
+                )
+                
+            if data['type'] == 'user_update':
+                if data['id'] == self.user[0][0].username:
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user1',
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                    )
+                elif data['id'] == self.user[1][0].username:
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : 'user2',
+                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"]}
+                    )
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'message': 'fail'}))
+
+    async def start_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({'type': message}))
+
+    async def user_update(self, event):
+        message = event['message']
+        user = event['user']
+        posY = event['posY']
+        skill = event['skill']
+        skillpower = event['skillpower']
+        await self.send(text_data=json.dumps({'type': message, 'user' : user, 'posY' : posY,
+                                              'skill' : skill, 'skillpower' : skillpower}))
+
+    @database_sync_to_async
+    def exit_game_room(self, player):
+        game_room = player.profile.game_room
+        if game_room is None:
+            return None
+        host = game_room.host
+        if player.username == host:
+            game_room.delete()
+            self.user.clear()
+            return 'host_exit'
+        player.profile.game_room = None
+        player.profile.save()
+        if game_room.get_room_person() == 0:
+            game_room.delete()
+        return 'player_exit'

@@ -365,7 +365,7 @@ class MyPageSerializer(serializers.ModelSerializer):
         if obj.image:
             return obj.image.url
         return obj.picture
-
+      
     def get_friends(self, obj):
         friends = FriendShip.objects.filter(owner=obj)
         friend_list = [{'user_id': friend.friend.oauth_id, 'user_name': friend.friend.user.username, 'picture': friend.friend.picture} for friend in

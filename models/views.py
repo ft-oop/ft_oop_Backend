@@ -214,8 +214,15 @@ def create_game(request):
 
 
 @api_view(['POST'])
-def exit_game_room(request, room_id):
+def exit_game_room(request):
     user_id = get_user_info_from_token(request)
+    try:
+        data = json.loads(request.body)
+        room_id = data['roomID']
+    except KeyError:
+        return JsonResponse({
+            'message': 'Bad Request'
+        }, status=400)
     service = GameRoomSerializer()
     service.exit_game_room(user_id, room_id)
     return JsonResponse('OK', safe=False, status=200)
@@ -360,4 +367,3 @@ def get_chat_history(request):
         {'sender_picture' : sender_profile.picture, 'receiver_picture' : receiver_profile.picture, 'message_list' : message_list},
         safe=False, status=200
         )
-    
