@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import UserProfile, GameRoom, MatchHistory, BlockRelation, FriendShip, Message
 from django.conf import settings
-
+import bcrypt
 
 class GameRoomSerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,7 +32,7 @@ class GameRoomSerializer(serializers.ModelSerializer):
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
-        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=password,
+        game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=hash_password(password),
                         host=user.username)
         user_profile.game_room = game
         game.save()
@@ -73,6 +73,18 @@ class GameRoomSerializer(serializers.ModelSerializer):
         kick_user = get_object_or_404(UserProfile, nick_name=nick_name)
         kick_user.game_room = None
         kick_user.save()
+
+
+def hash_password(password):
+    # 비밀번호를 해시화하여 반환
+    if password == "":
+        return password
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    return hashed_password.decode('utf-8')
+
+def verify_password(password, hashed_password):
+    # 저장된 해시화된 비밀번호와 사용자가 제출한 비밀번호를 비교
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def get_42oauth_token(code):
     data = {
@@ -397,7 +409,7 @@ class DualGameRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Invalid Room Type')
         if participant + 1 > game_room.limits:
             raise serializers.ValidationError('Limits exceeded')
-        if game_room.password != "" and game_room.password != password:
+        if game_room.password != "" and verify_password(password, game_room.password) is False:
             raise serializers.ValidationError('Passwords do not match')
         user.game_room = game_room
         user.save()
@@ -434,7 +446,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
         users_in_game = UserProfile.objects.filter(game_room=game_room)
         if game_room.room_type != 1:
             raise serializers.ValidationError("Invalid Room Type")
-        if game_room.password != password:
+        if game_room.password != "" and verify_password(password, game_room.password) is False:
             raise serializers.ValidationError("Passwords do not match")
         if users_in_game.count() + 1 > game_room.limits:
             raise serializers.ValidationError("Limits exceeded")
