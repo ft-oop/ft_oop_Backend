@@ -478,7 +478,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": num}))
             await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'start_message', 'message': "user" + num + "connect"},
+                self.room_group_name, {'type': 'start_message', 'message': "user" + str(num) + "connect"},
             )
 
     async def disconnect(self, close_code):
@@ -490,7 +490,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             if p[0] == player:
                 self.user.remove(p)
         
-        type = await get_host(player)
+        type = await get_host(self.host, player)
         if type == 'host':
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
@@ -506,7 +506,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         try:
             if data['type'] == 'ready':
                 if data['user'] == "1":
-                    if self.user[1][1] and self.user[2][1] and self.user[3][1]:
+                    if len(self.user) == 4 and self.user[1][1] and self.user[2][1] and self.user[3][1]:
                         self.user[0][1] = True
                     # self.user[0][1] = False
                 elif data['user'] == "2":
@@ -515,7 +515,8 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                     self.user[2][1] = True
                 elif data['user'] == "4":
                     self.user[3][1] = True
-            if self.user[0][1] and self.user[1][1] and self.user[2][1] and self.user[3][1]:
+            
+            if len(self.user) == 4 and self.user[0][1] and self.user[1][1] and self.user[2][1] and self.user[3][1]:
                 self.game = True
                 for p in self.user:
                     p[1] = False
