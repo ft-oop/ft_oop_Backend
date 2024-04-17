@@ -323,7 +323,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         if len(self.user) > 2:
             await self.send(text_data=json.dumps({'message': 'full room'}))
 
-        self.user.append([player, False])
+        self.user.append([player, False, str(len(self.user) + 1)])
         print(self.user)
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -410,6 +410,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(
                     self.room_group_name, {'type': 'start_message', 'message': 'end_game'}
                 )
+            if data['type'] == 'userNumber':
+                for i in range(len(self.user)):
+                    tmp = self.user[i]
+                    if tmp[0] == self.scope['user']:
+                        await self.send(text_data=json.dumps({'type': 'userNumber', 'num' : str(i + 1)}))
+                
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
