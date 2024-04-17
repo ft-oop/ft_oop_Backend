@@ -243,8 +243,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
+        data = json.loads(text_data)
         try:
-            data = json.loads(text_data)
             sender = data['sender']
             receiver = data['receiver']
             message = data['message']
@@ -252,6 +252,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender_profile = await self.get_user_profile(sender)
             receiver_profile = await self.get_user_profile(receiver)
             await self.save_message(sender_profile, receiver_profile, message)
+
+            if message == 'start_game_in_chat':
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat_message',
+                        'room_id': 'room_id_test!',
+                        'message': 'start!'
+                    }
+                )
+                return
+
+            if message == 'cancel_game_in_chat':
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat_message',
+                        'message': 'canceled!'
+                    }
+                )
+                return
 
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -277,14 +298,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, sender_profile, receiver_profile, message):
-         message_instance = Message.objects.create(
-                    sender=sender_profile,
-                    receiver=receiver_profile,
-                    message=message
-                )
+        message_instance = Message.objects.create(
+            sender=sender_profile,
+            receiver=receiver_profile,
+            message=message
+        )
+
     @database_sync_to_async
     def get_user_profile(self, id):
         return UserProfile.objects.get(oauth_id=id)
+
 
 class GameConsumer(AsyncWebsocketConsumer):
     user = []
@@ -298,14 +321,14 @@ class GameConsumer(AsyncWebsocketConsumer):
         player = self.scope['user']
         if len(self.user) > 2:
             await self.send(text_data=json.dumps({'message': 'full room'}))
-        
+
         self.user.append([player, False])
         print(self.user)
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
-        
+
         if len(self.user) == 1:
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
@@ -321,7 +344,6 @@ class GameConsumer(AsyncWebsocketConsumer):
                 self.room_group_name, {'type': 'start_message', 'message': "user2 connect"},
             )
 
-    
     async def disconnect(self, close_code):
         """
         사용자와 WebSocket 연결이 끊겼을 때 호출
@@ -337,14 +359,14 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
             )
-            
+
         await self.channel_layer.group_discard(
             self.room_group_name, self.channel_name
         )
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        
+
         try:
             if data['type'] == 'ready':
                 if data['user'] == "1":
@@ -356,24 +378,27 @@ class GameConsumer(AsyncWebsocketConsumer):
                 self.user[0][1] = False
                 self.user[1][1] = False
                 await self.channel_layer.group_send(
-                    self.room_group_name, {'type': 'start_message', 'message' : 'start'}
+                    self.room_group_name, {'type': 'start_message', 'message': 'start'}
                 )
-                
+
             if data['type'] == 'user_update':
                 if data['id'] == '1':
                     await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : '1',
-                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"], 'score' : data['score']}
+                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '1',
+                                               'posY': data['posY'], 'skill': data['skill'],
+                                               'skillpower': data["skillpower"], 'score': data['score']}
                     )
                 elif data['id'] == '2':
                     await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message' : 'user_update', 'user' : '2',
-                                               'posY' : data['posY'], 'skill' : data['skill'], 'skillpower' : data["skillpower"], 'score' : data['score']}
+                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '2',
+                                               'posY': data['posY'], 'skill': data['skill'],
+                                               'skillpower': data["skillpower"], 'score': data['score']}
                     )
             if data['type'] == 'ball_update':
                 await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'ball_update', 'message' : 'ball_update', 'posX' : data['posX'], 'posY' : data['posY']}
-                    )
+                    self.room_group_name,
+                    {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
+                )
             if data['type'] == 'win':
                 winner = self.scope['user']
                 for p in self.user:
@@ -382,7 +407,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                         break
                 await self.set_win_lose(winner, loser)
                 await self.channel_layer.group_send(
-                    self.room_group_name, {'type': 'start_message', 'message' : 'end_game'}
+                    self.room_group_name, {'type': 'start_message', 'message': 'end_game'}
                 )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
@@ -398,14 +423,15 @@ class GameConsumer(AsyncWebsocketConsumer):
         skill = event['skill']
         score = event['score']
         skillpower = event['skillpower']
-        await self.send(text_data=json.dumps({'type': message, 'user' : user, 'posY' : posY,
-                                              'skill' : skill, 'skillpower' : skillpower, 'score' : score}))
+        await self.send(text_data=json.dumps({'type': message, 'user': user, 'posY': posY,
+                                              'skill': skill, 'skillpower': skillpower, 'score': score}))
+
     async def ball_update(self, event):
         message = event['message']
         posX = event['posX']
         posY = event['posY']
-        await self.send(text_data=json.dumps({'type': message, 'posY' : posY, 'posX' : posX}))
-    
+        await self.send(text_data=json.dumps({'type': message, 'posY': posY, 'posX': posX}))
+
     async def picture_update(self, event):
         message = event['message']
         user_info = []
@@ -416,7 +442,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 'picture': user_profile.picture
             })
         await self.send(text_data=json.dumps({
-            
+
         }))
 
     @database_sync_to_async
@@ -431,15 +457,15 @@ class GameConsumer(AsyncWebsocketConsumer):
         loser.profile.total_lose += 1
         MatchHistory.objects.create(
             opponent_name=loser.username,
-            user = winner.profile,
-            result = 'win',
-            game_type = 0,
-            match_date = datetime.now()
+            user=winner.profile,
+            result='win',
+            game_type=0,
+            match_date=datetime.now()
         )
         MatchHistory.objects.create(
             opponent_name=winner.username,
-            user = loser.profile,
-            result = 'lose',
-            game_type = 0,
-            match_date = datetime.now()
+            user=loser.profile,
+            result='lose',
+            game_type=0,
+            match_date=datetime.now()
         )
