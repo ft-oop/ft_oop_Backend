@@ -10,7 +10,7 @@ class GameRoom(models.Model):
     room_name = models.CharField(max_length=64)
     room_type = models.IntegerField(default=0)
     limits = models.IntegerField(default=0)
-    password = models.CharField(max_length=12)
+    password = models.CharField(max_length=1024)
     host = models.CharField(max_length=10)
 
     def __str__(self):
