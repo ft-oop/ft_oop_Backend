@@ -12,3 +12,4 @@ psycopg2-binary
 Pillow
 requests~=2.31.0
 channels
+bcrypt

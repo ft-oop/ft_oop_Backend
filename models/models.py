@@ -10,7 +10,7 @@ class GameRoom(models.Model):
     room_name = models.CharField(max_length=64)
     room_type = models.IntegerField(default=0)
     limits = models.IntegerField(default=0)
-    password = models.CharField(max_length=12)
+    password = models.CharField(max_length=1024)
     host = models.CharField(max_length=10)
 
     def __str__(self):
@@ -105,7 +105,7 @@ class MatchHistory(models.Model):
     match_date = models.DateField()
 
     def __str__(self):
-        return f"{self.user.user_name} vs. {self.opponent_name} - {self.result}"
+        return f"{self.user.user.username} vs. {self.opponent_name} - {self.result}"
 
     def get_opponent_name(self):
         return self.opponent_name
