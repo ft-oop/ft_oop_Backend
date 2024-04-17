@@ -584,7 +584,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                             'room1': roomID,
                         }
                     )
-            if data['type'] == 'end':
+            # if data['type'] == 'end':
             # if data['type'] == 'user_update':
             #     if data['id'] == '1':
             #         await self.channel_layer.group_send(
