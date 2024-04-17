@@ -522,22 +522,29 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 self.game = True
                 for p in self.user:
                     p[1] = False
-                
-                await self.channel_layer.group_send(
-                    self.room_group_name, {'type': 'start_message', 'message': 'start'}
-                )
-            if data['type'] == 'makeRoom':
                 if len(self.user) == 4:
                     room1 = await self.create_game_room(self.user[0][0])
                     room2 = await self.create_game_room(self.user[2][0])
                     await self.channel_layer.group_send(
                         self.room_group_name,
                         {
-                            'message': 'roomID',
+                            'type' : 'tournamnet_start',
                             'room1': room1,
                             'room2': room2
                         }
                     )
+            # if data['type'] == 'makeRoom':
+            #     if len(self.user) == 4:
+            #         room1 = await self.create_game_room(self.user[0][0])
+            #         room2 = await self.create_game_room(self.user[2][0])
+            #         await self.channel_layer.group_send(
+            #             self.room_group_name,
+            #             {
+            #                 'message': 'roomID',
+            #                 'room1': room1,
+            #                 'room2': room2
+            #             }
+            #         )
             
             if data['type'] == 'firstResult':
                 loser1 = data['loserId']
@@ -563,6 +570,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         }
                     )
             if data['type'] == 'end':
+                print('win')
                 
             # if data['type'] == 'user_update':
             #     if data['id'] == '1':
@@ -598,6 +606,18 @@ class TournamentConsumer(AsyncWebsocketConsumer):
     async def start_message(self, event):
         message = event['message']
         await self.send(text_data=json.dumps({'type': message}))
+
+    async def tournamnet_start(self, event):
+        #message = event['message']
+        room1 = event['room1']
+        room2 = event['room2']
+        await self.send(text_data=json.dumps({
+            'type' : 'start',
+            'message': 'roomID',
+            'username': self.scope['user'].username,
+            'room1': room1,
+            'room2': room2
+        }))
 
     @database_sync_to_async
     def create_game_room(self, host):
