@@ -429,13 +429,6 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
     def get_host_name(self, obj):
         return obj.get_host()
 
-    def get_host_picture(self, obj):
-        host_name = obj.get_host()
-        host = UserProfile.objects.filter(user_name=host_name)
-        if host.image:
-            return host.image.url
-        return host.picture
-
     def get_guest_list(self, obj):
         users = UserProfile.objects.filter(game_room=obj)
         guest_list = [{'nic_name': user.get_nick_name(), 'picture': user.get_picture()} for user in users]
@@ -458,7 +451,7 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
 
         host = get_object_or_404(User, username=game_room.get_host()).profile
         
-        host_picture = self.get_host_picture(host)
+        host_picture = host.get_picture()
 
         guest_list = self.get_guest_list(game_room)
         user.save()
