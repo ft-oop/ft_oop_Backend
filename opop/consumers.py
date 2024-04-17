@@ -475,8 +475,9 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             self.host = self.user[0][0].username
         else:
             num = len(self.user)
+            print('num', num)
             await self.accept()
-            await self.send(text_data=json.dumps({"type": "user", "user": num}))
+            await self.send(text_data=json.dumps({"type": "user", "user": str(num)}))
             await self.channel_layer.group_send(
                 self.room_group_name, {'type': 'start_message', 'message': "user" + str(num) + "connect"},
             )
@@ -508,7 +509,8 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 if data['user'] == "1":
                     if len(self.user) == 4 and self.user[1][1] and self.user[2][1] and self.user[3][1]:
                         self.user[0][1] = True
-                    # self.user[0][1] = False
+                    else:
+                        await self.send(text_data=json.dumps({'message': 'not ready'}))
                 elif data['user'] == "2":
                     self.user[1][1] = True
                 elif data['user'] == "3":
@@ -524,25 +526,25 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(
                     self.room_group_name, {'type': 'start_message', 'message': 'start'}
                 )
-
-            if data['type'] == 'user_update':
-                if data['id'] == '1':
-                    await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '1',
-                                               'posY': data['posY'], 'skill': data['skill'],
-                                               'skillpower': data["skillpower"], 'score': data['score']}
-                    )
-                elif data['id'] == '2':
-                    await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '2',
-                                               'posY': data['posY'], 'skill': data['skill'],
-                                               'skillpower': data["skillpower"], 'score': data['score']}
-                    )
-            if data['type'] == 'ball_update':
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
-                )
+            
+            # if data['type'] == 'user_update':
+            #     if data['id'] == '1':
+            #         await self.channel_layer.group_send(
+            #             self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '1',
+            #                                    'posY': data['posY'], 'skill': data['skill'],
+            #                                    'skillpower': data["skillpower"], 'score': data['score']}
+            #         )
+            #     elif data['id'] == '2':
+            #         await self.channel_layer.group_send(
+            #             self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '2',
+            #                                    'posY': data['posY'], 'skill': data['skill'],
+            #                                    'skillpower': data["skillpower"], 'score': data['score']}
+            #         )
+            # if data['type'] == 'ball_update':
+            #     await self.channel_layer.group_send(
+            #         self.room_group_name,
+            #         {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
+            #     )
             if data['type'] == 'win':
                 winner = self.scope['user']
                 for p in self.user:

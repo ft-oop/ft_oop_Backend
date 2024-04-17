@@ -32,6 +32,8 @@ class GameRoomSerializer(serializers.ModelSerializer):
             type_integer = 0
         else:
             raise serializers.ValidationError('Invalid game type')
+        if room_limit == '':
+            raise serializers.ValidationError('Invalid number type')
         game = GameRoom(room_name=room_name, room_type=type_integer, limits=room_limit, password=hash_password(password),
                         host=user.username)
         user_profile.game_room = game
