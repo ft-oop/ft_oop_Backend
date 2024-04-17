@@ -414,7 +414,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 for i in range(len(self.user)):
                     tmp = self.user[i]
                     if tmp[0] == self.scope['user']:
-                        await self.send(text_data=json.dumps({'type': 'userNumber', 'num' : str(i + 1)}))
+                        await self.send(text_data=json.dumps({'type': 'user', 'user' : str(i + 1)}))
                 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
