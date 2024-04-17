@@ -611,12 +611,17 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         #message = event['message']
         room1 = event['room1']
         room2 = event['room2']
+        for i in range(len(self.user)):
+            if self.user[i][0] == self.scope['user']:
+                usernum = i + 1
+                break
         await self.send(text_data=json.dumps({
             'type' : 'start',
             'message': 'roomID',
             'username': self.scope['user'].username,
             'room1': room1,
-            'room2': room2
+            'room2': room2,
+            'usernum': usernum
         }))
 
     @database_sync_to_async
