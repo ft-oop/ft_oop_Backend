@@ -528,7 +528,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                             self.room_group_name,
                             {
                                 'type': 'start_message',
-                                'message': 'start'
+                                'message': 'gameStart'
                                 }
                         )
                     else:
@@ -540,21 +540,23 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 elif data['user'] == "4":
                     self.user[3][1] = True
             
-            if self.game == False and self.user[0][1] and self.user[1][1] and self.user[2][1] and self.user[3][1]:
-                self.game = True
-                for p in self.user:
-                    p[1] = False
-                if len(self.user) == 4:
-                    room1 = await self.create_game_room(self.user[0][0])
-                    room2 = await self.create_game_room(self.user[2][0])
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        {
-                            'type' : 'tournamnet_start',
-                            'room1': room1,
-                            'room2': room2
-                        }
-                    )
+            if data['type'] == 'gameStart':
+                if self.host == data['user']:
+                    if self.game == False and self.user[0][1] and self.user[1][1] and self.user[2][1] and self.user[3][1]:
+                        self.game = True
+                        for p in self.user:
+                            p[1] = False
+                        if len(self.user) == 4:
+                            room1 = await self.create_game_room(self.user[0][0])
+                            room2 = await self.create_game_room(self.user[2][0])
+                            await self.channel_layer.group_send(
+                                self.room_group_name,
+                                {
+                                    'type' : 'tournamnet_start',
+                                    'room1': room1,
+                                    'room2': room2
+                                }
+                            )
             # if data['type'] == 'makeRoom':
             #     if len(self.user) == 4:
             #         room1 = await self.create_game_room(self.user[0][0])
