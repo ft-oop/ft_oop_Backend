@@ -526,7 +526,44 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(
                     self.room_group_name, {'type': 'start_message', 'message': 'start'}
                 )
+            if data['type'] == 'makeRoom':
+                if len(self.user) == 4:
+                    room1 = await self.create_game_room(self.user[0][0])
+                    room2 = await self.create_game_room(self.user[2][0])
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'message': 'roomID',
+                            'room1': room1,
+                            'room2': room2
+                        }
+                    )
             
+            if data['type'] == 'firstResult':
+                loser1 = data['loserId']
+                room1 = data['room1']
+                await self.delete_room(room1)
+                self.user.remove(self.user[loser1 - 1])
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'message': 'success',
+                        'userCount': len(self.user)
+                    }
+                )
+            
+            if data['type'] == 'final':
+                roomID = await self.create_game_room(self.user[0][0])
+                await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'message': 'roomID',
+                            'room1': roomID,
+                        }
+                    )
+            if data['type'] == 'end':
+                
             # if data['type'] == 'user_update':
             #     if data['id'] == '1':
             #         await self.channel_layer.group_send(
@@ -561,6 +598,26 @@ class TournamentConsumer(AsyncWebsocketConsumer):
     async def start_message(self, event):
         message = event['message']
         await self.send(text_data=json.dumps({'type': message}))
+
+    @database_sync_to_async
+    def create_game_room(self, host):
+        game_room = GameRoom.objects.create(
+            room_name = 'Tournament' + self.room_group_name,
+            room_type = 0,
+            limits = 2,
+            password = "",
+            host = host.username
+        )
+        return game_room.id
+    
+    @database_sync_to_async
+    def delete_room(self, id):
+        game = GameRoom.objects.filter(id=id)
+        users = UserProfile.objects.filter(gmae_room=game)
+        for user in users:
+            user.game_room = None
+            user.save()
+        game.delete()
 
 @database_sync_to_async
 def get_host(host, player):
