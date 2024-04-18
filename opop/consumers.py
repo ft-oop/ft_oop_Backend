@@ -68,6 +68,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({'message': 'pong'}))
 
             if data['message'] == 'getRoomList':
+                await self.exit_room(self.scope['user'])
                 room_list = await self.get_room_list()
 
                 await self.send(text_data=json.dumps({
@@ -135,6 +136,12 @@ class NoticeConsumer(AsyncWebsocketConsumer):
             user.save()
         random_game_room.delete()
         random_game_room.save()
+    
+    @database_sync_to_async
+    def exit_room(self, user):
+        user_profile = user.profile
+        user_profile.game_room = None
+        user_profile.save()
 
     @sync_to_async
     def get_room_list(self):
@@ -695,26 +702,26 @@ def set_win_lose(winner, room_id):
     users = UserProfile.objects.filter(game_room_id=room_id)
     loser = users.exclude(id=winner.id).first()
 
-    print('winner = ', winner.username)
-    print('winner total win = ', winner.profile.total_win)
-    print('winner total lose = ', winner.profile.total_lose)
+    # print('winner = ', winner.username)
+    # print('winner total win = ', winner.profile.total_win)
+    # print('winner total lose = ', winner.profile.total_lose)
 
-    print('loser = ', loser.user.username)
-    print('loser total win = ', loser.total_win)
-    print('loser total lose = ', loser.total_lose)
+    # print('loser = ', loser.user.username)
+    # print('loser total win = ', loser.total_win)
+    # print('loser total lose = ', loser.total_lose)
 
     winner.profile.total_win += 1
     loser.total_lose += 1
     winner.profile.save()
     loser.save()
-    print('-----------------------after calculate------------------------')
-    print('winner = ', winner.username)
-    print('winner total win = ', winner.profile.total_win)
-    print('winner total lose = ', winner.profile.total_lose)
+    # print('-----------------------after calculate------------------------')
+    # print('winner = ', winner.username)
+    # print('winner total win = ', winner.profile.total_win)
+    # print('winner total lose = ', winner.profile.total_lose)
 
-    print('loser = ', loser.user.username)
-    print('loser total win = ', loser.total_win)
-    print('loser total lose = ', loser.total_lose)
+    # print('loser = ', loser.user.username)
+    # print('loser total win = ', loser.total_win)
+    # print('loser total lose = ', loser.total_lose)
     MatchHistory.objects.create(
         opponent_name=loser.user.username,
         user=winner.profile,
