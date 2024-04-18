@@ -100,9 +100,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
                         random_match_room = await self.create_random_match_room(host, guest)
                         group_name = await self.generate_socket_room(random_match_room.id, host, guest)
-                        print('generate_socket_room clear!!!!!')
                         message = await self.generate_users_information(host, guest)
-                        print('create_message_clear!')
 
                         await self.send_message_to_room("enter_room", group_name, message, random_match_room.id)
                     except Exception as e:
@@ -367,21 +365,90 @@ class GameConsumer(AsyncWebsocketConsumer):
         print('connected, room_name = ', self.room_name)
         self.room_group_name = f'room_{self.room_name}'
 
-        player = self.scope['user']
-
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
+        message = await self.generate_user_info_in_game_room(self.room_name)
+        await self.send_connect(sequence, 'username', message)
 
-        await self.send_connect_message(sequence, 'username')
+    async def send_connect(self, sequence, type, message):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'connect_start',
+                'message': message,
+                'sequence': sequence,
+                'input': type
+            }
+        )
+
+    async def connect_start(self, event):
+        sequence = event['sequence']
+        message = event['message']
+        type = event['input']
+        await self.send(text_data=json.dumps({
+            'type': type,
+            'sequence': sequence,
+            'message': message
+        }))
+
+    @database_sync_to_async
+    def get_room_info(self, room_id):
+        return GameRoom.objects.get(id=room_id)
+    
+    @database_sync_to_async
+    def get_user_profile_by_room_id(self, room):
+        return UserProfile.objects.filter(game_room=room)
+    
+    @database_sync_to_async
+    def get_user(self, username):
+        return User.objects.get(username=username)
+    
+    @database_sync_to_async
+    def get_picture(self, user_profile):
+        return user_profile.profile.get_picture()
+    
+    @database_sync_to_async
+    def get_user_participaints(self, room):
+        return len(room.get_user())
+
+    @database_sync_to_async
+    def generate_guest_profile(self, user_profiles, host_profile):
+        guest_profiles = []
+        for user_profile in user_profiles:
+            if user_profile != host_profile:
+                guest_info = {
+                    'guest_name': user_profile.user.username,
+                    'guest_picture': user_profile.get_picture()
+                }
+                guest_profiles.append(guest_info)
+        return guest_profiles
+
+    async def generate_user_info_in_game_room(self, room_id):
+        room = await self.get_room_info(room_id)
+        users_in_game_room = await self.get_user_profile_by_room_id(room)
+
+        host_name = room.host
+        participaints = await self.get_user_participaints(room)
+        host = await self.get_user(host_name)
+        host_picture = await self.get_picture(host)
+        if participaints >= 2:
+            guest_profiles = await self.generate_guest_profile(users_in_game_room, host.profile)
+        else:
+            guest_profiles = []
+        
+        return {
+            'host_name': host_name,
+            'host_picture': host_picture,
+            'guests': guest_profiles
+        }
 
     async def send_connect_message(self, sequence, message):
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'start_message',
-                # 'message': player.usernamem,
                 'message' : message,
                 'sequence': sequence
             },
@@ -734,26 +801,11 @@ def set_win_lose(winner, room_id):
     users = UserProfile.objects.filter(game_room_id=room_id)
     loser = users.exclude(id=winner.id).first()
 
-    # print('winner = ', winner.username)
-    # print('winner total win = ', winner.profile.total_win)
-    # print('winner total lose = ', winner.profile.total_lose)
-
-    # print('loser = ', loser.user.username)
-    # print('loser total win = ', loser.total_win)
-    # print('loser total lose = ', loser.total_lose)
-
     winner.profile.total_win += 1
     loser.total_lose += 1
     winner.profile.save()
     loser.save()
-    # print('-----------------------after calculate------------------------')
-    # print('winner = ', winner.username)
-    # print('winner total win = ', winner.profile.total_win)
-    # print('winner total lose = ', winner.profile.total_lose)
 
-    # print('loser = ', loser.user.username)
-    # print('loser total win = ', loser.total_win)
-    # print('loser total lose = ', loser.total_lose)
     MatchHistory.objects.create(
         opponent_name=loser.user.username,
         user=winner.profile,
