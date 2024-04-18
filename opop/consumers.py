@@ -331,14 +331,15 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-        await self.send_connect_message(sequence)
+        await self.send_connect_message(sequence, 'username')
 
-    async def send_connect_message(self, sequence):
+    async def send_connect_message(self, sequence, message):
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'start_message',
                 # 'message': player.usernamem,
+                'message' : message,
                 'sequence': sequence
             },
         )
@@ -369,7 +370,7 @@ class GameConsumer(AsyncWebsocketConsumer):
 
             if data['type'] == 'ready':
                 user_number = data['user_num']
-                await self.send_connect_message(user_number)
+                await self.send_connect_message(user_number, 'ready')
             if data['type'] == 'start':
                 await self.send_start_message('start')
 
@@ -415,8 +416,9 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def start_message(self, event):
         sequence = event['sequence']
+        message = event['message']
         await self.send(text_data=json.dumps({
-            'type' : 'username',
+            'type' : message,
             'sequence': sequence
         }))
 
