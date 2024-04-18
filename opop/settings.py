@@ -135,14 +135,10 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -150,8 +146,6 @@ CLIENT_ID = os.environ.get('CLIENT_ID')
 CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
 
 LOGIN_REDIRECT_URL = os.environ.get('LOGIN_REDIRECT_URL')
-
-LOGIN_REDIRECT_URL = 'http://10.13.5.7/login'
 
 
 FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
