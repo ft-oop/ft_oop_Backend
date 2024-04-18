@@ -151,8 +151,12 @@ CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
 
 LOGIN_REDIRECT_URL = os.environ.get('LOGIN_REDIRECT_URL')
 
-FT_TOKEN_URL = os.environ.get('FT_TOKEN_URL')
-FT_USER_ATTRIBUTE_URL = os.environ.get('FT_USER_ATTRIBUTE_URL')
+LOGIN_REDIRECT_URL = 'http://10.13.5.7/login'
+
+
+FT_TOKEN_URL = 'https://api.intra.42.fr/oauth/token'
+FT_USER_ATTRIBUTE_URL = 'https://api.intra.42.fr/v2/me'
+
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST')
@@ -166,7 +170,8 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:80',
     'http://localhost:8000',
 
-    'http://10.19.233.250:8000'
+
+    'http://10.13.6.1:8000'
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
