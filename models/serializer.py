@@ -316,6 +316,8 @@ class FriendSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def add_friend(self, user_id, friend_name):
+        if not friend_name.strip():
+            raise serializers.ValidationError("Can not input whitespace")
         user_profile = get_object_or_404(User, id=user_id).profile
         friend = get_object_or_404(User, username=friend_name).profile
         if BlockRelation.objects.filter(blocked=friend, blocked_by=user_profile).exists():

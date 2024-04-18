@@ -305,6 +305,8 @@ def add_friend(request):
         error_messages = [str(detail) for detail in e.detail][0]
         if 'Friend is Blocked friend' == error_messages:
             return JsonResponse({'error': e.detail, 'code': 2000}, status=400)
+        elif 'Can not input whitespace' == error_messages:
+            return JsonResponse({'error': e.detail, 'code': 2002}, status=400)
         else:
             return JsonResponse({'error': e.detail, 'code': 2001}, status=400)
     return JsonResponse('OK', safe=False, status=200)
