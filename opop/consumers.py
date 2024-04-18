@@ -349,9 +349,6 @@ class GameConsumer(AsyncWebsocketConsumer):
         사용자와 WebSocket 연결이 끊겼을 때 호출
         """
         player = self.scope['user']
-        for p in self.user:
-            if p[0] == player:
-                self.user.remove(p)
 
         # Leave room group
         type = await get_host(self.host, player)
@@ -393,15 +390,11 @@ class GameConsumer(AsyncWebsocketConsumer):
                     {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
                 )
             if data['type'] == 'win':
-                winner = self.scope['user']
-                for p in self.user:
-                    if p[0] != winner:
-                        loser = p[0]
-                        break
-                await set_win_lose(winner, loser)
-                await self.channel_layer.group_send(
-                    self.room_group_name, {'type': 'start_message', 'message': 'end_game'}
-                )
+                if data['winner'] == self.scope['user'].username:
+                    await set_win_lose(self.scope['user'], data['loser'])
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'start_message', 'message': 'end_game'}
+                    )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -425,7 +418,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def send_message(self, event):
         message = event['message']
         await self.send(text_data=json.dumps({
-            'message': message
+            'type': message
         }))
 
     async def user_update(self, event):
@@ -667,16 +660,20 @@ class TournamentConsumer(AsyncWebsocketConsumer):
 
 
 @database_sync_to_async
-def get_host(host, player):
-    if host == player.username:
+def get_host(room_id, player):
+    game = GameRoom.objects.filter(id=room_id)
+    if game.host == player.username:
         return 'host'
     return 'guest'
 
 
 @database_sync_to_async
-def set_win_lose(winner, loser):
+def set_win_lose(winner, loser_name):
+    loser = User.objects.filter(username=loser_name)
     winner.profile.total_win += 1
     loser.profile.total_lose += 1
+    winner.profile.save()
+    loser.profile.save()
     MatchHistory.objects.create(
         opponent_name=loser.username,
         user=winner.profile,
