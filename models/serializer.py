@@ -273,9 +273,9 @@ class MatchSerializer(serializers.ModelSerializer):
         fields = ['opponent_name', 'winner', 'match_date']
 
     def get_winner(self, obj):
-        if obj.result == 'WIN':
-            return obj.user.user_name
-        elif obj.result == 'LOSE':
+        if obj.result == 'win':
+            return obj.user.user.username
+        elif obj.result == 'lose':
             return obj.opponent_name
         else:
             return None
