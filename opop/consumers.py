@@ -416,7 +416,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         )
 
     async def start_message(self, event):
-        sequence = event[' ']
+        sequence = event['sequence']
         message = event['message']
         await self.send(text_data=json.dumps({
             'type' : message,
@@ -482,7 +482,11 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
             await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'start_message', 'message': "user1 connect"},
+                self.room_group_name, 
+                {
+                    'type': 'start_message',
+                    'message': "user1 connect"
+                },
             )
             self.host = self.user[0][0].username
         else:
@@ -491,7 +495,11 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             await self.accept()
             await self.send(text_data=json.dumps({"type": "user", "user": str(num)}))
             await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'start_message', 'message': "user" + str(num) + "connect"},
+                self.room_group_name, 
+                {
+                    'type': 'start_message',
+                    'message': "user" + str(num) + "connect"
+                },
             )
 
     async def disconnect(self, close_code):
@@ -506,7 +514,11 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         type = await get_host(self.host, player)
         if type == 'host':
             await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+                self.room_group_name, 
+                {
+                    'type': 'start_message', 
+                    'message': "disconnect"
+                },
             )
 
         await self.channel_layer.group_discard(
@@ -620,7 +632,10 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         break
                 await set_win_lose(winner, loser)
                 await self.channel_layer.group_send(
-                    self.room_group_name, {'type': 'start_message', 'message': 'end_game'}
+                    self.room_group_name, {
+                        'type': 'start_message', 
+                        'message': 'end_game'
+                    }
                 )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
