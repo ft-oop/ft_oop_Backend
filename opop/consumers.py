@@ -97,7 +97,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                         host = random_match_users.pop()
                         guest = random_match_users.pop()
 
-                        random_match_room = await self.create_random_match_room(host)
+                        random_match_room = await self.create_random_match_room(host, guest)
                         group_name = await self.generate_socket_room(random_match_room.id, host, guest)
                         print('generate_socket_room clear!!!!!')
                         message = await self.generate_users_information(host, guest)
@@ -161,14 +161,19 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         return friends_status
 
     @database_sync_to_async
-    def create_random_match_room(self, host):
-        return GameRoom.objects.create(
+    def create_random_match_room(self, host, guest):
+        game_room = GameRoom.objects.create(
             room_name="랜덤 매치 방",
             room_type=0,
             limits=2,
             password="",
             host=host.username
         )
+        host.profile.game_room = game_room
+        guest.profile.game_room = game_room
+        host.profile.save()
+        guest.profile.save()
+        return game_room
 
     async def generate_socket_room(self, room_id, host, guest):
         group_name = f'random_match_{room_id}'
@@ -351,10 +356,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         player = self.scope['user']
 
         # Leave room group
-        type = await get_host(self.host, player)
+        type = await get_host(self.room_name, player)
         if type == 'host':
             await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'start_message', 'message': "disconnect"},
+                self.room_group_name, {'type': 'send_message', 'message': "disconnect"},
             )
 
         await self.channel_layer.group_discard(
@@ -390,11 +395,14 @@ class GameConsumer(AsyncWebsocketConsumer):
                     {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
                 )
             if data['type'] == 'win':
-                if data['winner'] == self.scope['user'].username:
-                    await set_win_lose(self.scope['user'], data['loser'])
-                    await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'start_message', 'message': 'end_game'}
-                    )
+                await set_win_lose(self.scope['user'], self.room_name)
+                await self.channel_layer.group_send(
+                    self.room_group_name, 
+                    {
+                        'type': 'send_message', 
+                        'message': 'end_game'
+                    }
+                )
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -408,7 +416,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         )
 
     async def start_message(self, event):
-        sequence = event['sequence']
+        sequence = event[' ']
         message = event['message']
         await self.send(text_data=json.dumps({
             'type' : message,
@@ -661,21 +669,39 @@ class TournamentConsumer(AsyncWebsocketConsumer):
 
 @database_sync_to_async
 def get_host(room_id, player):
-    game = GameRoom.objects.filter(id=room_id)
+    game = GameRoom.objects.get(id=room_id)
     if game.host == player.username:
         return 'host'
     return 'guest'
 
 
 @database_sync_to_async
-def set_win_lose(winner, loser_name):
-    loser = User.objects.filter(username=loser_name)
+def set_win_lose(winner, room_id):
+    users = UserProfile.objects.filter(game_room_id=room_id)
+    loser = users.exclude(id=winner.id).first()
+
+    print('winner = ', winner.username)
+    print('winner total win = ', winner.profile.total_win)
+    print('winner total lose = ', winner.profile.total_lose)
+
+    print('loser = ', loser.user.username)
+    print('loser total win = ', loser.total_win)
+    print('loser total lose = ', loser.total_lose)
+
     winner.profile.total_win += 1
-    loser.profile.total_lose += 1
+    loser.total_lose += 1
     winner.profile.save()
-    loser.profile.save()
+    loser.save()
+    print('-----------------------after calculate------------------------')
+    print('winner = ', winner.username)
+    print('winner total win = ', winner.profile.total_win)
+    print('winner total lose = ', winner.profile.total_lose)
+
+    print('loser = ', loser.user.username)
+    print('loser total win = ', loser.total_win)
+    print('loser total lose = ', loser.total_lose)
     MatchHistory.objects.create(
-        opponent_name=loser.username,
+        opponent_name=loser.user.username,
         user=winner.profile,
         result='win',
         game_type=0,
@@ -683,7 +709,7 @@ def set_win_lose(winner, loser_name):
     )
     MatchHistory.objects.create(
         opponent_name=winner.username,
-        user=loser.profile,
+        user=loser,
         result='lose',
         game_type=0,
         match_date=datetime.now()
