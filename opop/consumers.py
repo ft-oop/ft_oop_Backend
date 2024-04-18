@@ -13,7 +13,6 @@ online_users = set()
 random_match_users = set()
 user_channel_names = {}
 connected_users = {}
-sequence = 0
 
 @database_sync_to_async
 def get_user_info_from_token(jwt):
@@ -236,6 +235,8 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         }))
 
 
+
+
 class ChatConsumer(AsyncWebsocketConsumer):
     game_users = set()
     async def connect(self):
@@ -348,18 +349,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_user(self, profile):
         return User.objects.get(profile=profile)
 
+
+
+
 class GameConsumer(AsyncWebsocketConsumer):
-    user = []
-    game1 = False
-    game2 = False
-
-    host = ''
     async def connect(self):
-        global sequence
-        sequence += 1
-        if sequence > 2:
-           sequence = 1
-
         await self.accept()
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         print('connected, room_name = ', self.room_name)
@@ -370,27 +364,307 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         message = await self.generate_user_info_in_game_room(self.room_name)
-        await self.send_connect(sequence, 'username', message)
+        await self.send_connect_message('username', message)
 
-    async def send_connect(self, sequence, type, message):
+
+    async def disconnect(self, close_code):
+        """
+        사용자와 WebSocket 연결이 끊겼을 때 호출
+        """
+        player = self.scope['user']
+
+        # Leave room group
+        type = await get_host(self.room_name, player)
+        if type == 'host':
+            await self.send_message("disconnect")
+
+        await self.channel_layer.group_discard(
+            self.room_group_name, self.channel_name
+        )
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+
+            if data['type'] == 'ready':
+                user_number = data['user_num']
+                await self.send_ready_message('ready', user_number)
+            if data['type'] == 'start':
+                await self.send_start_message('start')
+
+            if data['type'] == 'user_update':
+                if data['id'] == '1':
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '1',
+                                               'posY': data['posY'], 'skill': data['skill'],
+                                               'skillpower': data["skillpower"], 'score': data['score']}
+                    )
+                elif data['id'] == '2':
+                    await self.channel_layer.group_send(
+                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '2',
+                                               'posY': data['posY'], 'skill': data['skill'],
+                                               'skillpower': data["skillpower"], 'score': data['score']}
+                    )
+            if data['type'] == 'ball_update':
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
+                )
+            if data['type'] == 'win':
+                await set_win_lose(self.scope['user'], self.room_name)
+                await self.send_message('end_game')
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'message': 'fail'}))
+
+
+    @database_sync_to_async
+    def get_room_info(self, room_id):
+        return GameRoom.objects.get(id=room_id)
+    
+    @database_sync_to_async
+    def get_user_profile_by_room_id(self, room):
+        return UserProfile.objects.filter(game_room=room)
+    
+    @database_sync_to_async
+    def get_user(self, username):
+        return User.objects.get(username=username)
+    
+    @database_sync_to_async
+    def get_picture(self, user_profile):
+        return user_profile.profile.get_picture()
+    
+    @database_sync_to_async
+    def get_user_participaints(self, room):
+        return len(room.get_user())
+
+    @database_sync_to_async
+    def generate_guest_profile(self, user_profiles, host_profile):
+        guest_profiles = []
+        for user_profile in user_profiles:
+            if user_profile != host_profile:
+                guest_info = {
+                    'guest_name': user_profile.user.username,
+                    'guest_picture': user_profile.get_picture()
+                }
+                guest_profiles.append(guest_info)
+        return guest_profiles
+
+    async def generate_user_info_in_game_room(self, room_id):
+        room = await self.get_room_info(room_id)
+        users_in_game_room = await self.get_user_profile_by_room_id(room)
+
+        host_name = room.host
+        participaints = await self.get_user_participaints(room)
+        host = await self.get_user(host_name)
+        host_picture = await self.get_picture(host)
+        if participaints >= 2:
+            guest_profiles = await self.generate_guest_profile(users_in_game_room, host.profile)
+        else:
+            guest_profiles = []
+        
+        return {
+            'host_name': host_name,
+            'host_picture': host_picture,
+            'guests': guest_profiles
+        }
+    
+    async def send_connect_message(self, type, message):
         await self.channel_layer.group_send(
             self.room_group_name,
             {
-                'type': 'connect_start',
+                'type': 'fun_connect_message',
                 'message': message,
-                'sequence': sequence,
                 'input': type
             }
         )
 
-    async def connect_start(self, event):
-        sequence = event['sequence']
+    async def send_ready_message(self , message, user_number):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'fun_ready_message',
+                'message' : message,
+                'user_number' : user_number
+            },
+        )
+
+    async def send_start_message(self, message):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'fun_start_message',
+                'message': message
+            },
+        )
+
+    async def send_message(self, message):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'fun_send_message',
+                'message': message
+            },
+        )
+
+    async def fun_connect_message(self, event):
         message = event['message']
         type = event['input']
         await self.send(text_data=json.dumps({
             'type': type,
-            'sequence': sequence,
             'message': message
+        }))
+
+    async def fun_ready_message(self, event):
+        message = event['message']
+        user_number = event['user_number']
+        await self.send(text_data=json.dumps({
+            'type' : message,
+            'user_number' : user_number
+        }))
+
+    async def fun_send_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type' : message,
+        }))
+
+    async def fun_start_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type': message
+        }))
+
+    async def user_update(self, event):
+        message = event['message']
+        user = event['user']
+        posY = event['posY']
+        skill = event['skill']
+        score = event['score']
+        skillpower = event['skillpower']
+        await self.send(text_data=json.dumps({'type': message, 'user': user, 'posY': posY,
+                                              'skill': skill, 'skillpower': skillpower, 'score': score}))
+
+    async def ball_update(self, event):
+        message = event['message']
+        posX = event['posX']
+        posY = event['posY']
+        await self.send(text_data=json.dumps({'type': message, 'posY': posY, 'posX': posX}))
+
+
+
+
+
+class TournamentConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        print('connected, room_name = ', self.room_name)
+        self.room_group_name = f'room_{self.room_name}'
+
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        message = await self.generate_user_info_in_game_room(self.room_name)
+        await self.send_connect_message('username', message)
+        
+
+    async def disconnect(self, close_code):
+        """
+        사용자와 WebSocket 연결이 끊겼을 때 호출
+        """
+        player = self.scope['user']
+
+        # Leave room group
+        type = await get_host(self.room_name, player)
+        if type == 'host':
+            await self.send_message("disconnect")
+
+        await self.channel_layer.group_discard(
+            self.room_group_name, self.channel_name
+        )
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        try:
+            if data['type'] == 'ready':
+                user_number = data['user_num']
+                await self.send_ready_message('ready', user_number)
+            if data['type'] == 'start':
+                await self.send_start_message('start')
+                room1 = await self.create_game_room(self.user[0][0])
+                room2 = await self.create_game_room(self.user[2][0])
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'tournamnet_start',
+                        'room1': room1,
+                        'room2': room2
+                    }
+                )
+
+            if data['type'] == 'firstResult':
+                loser1 = data['loserId']
+                room1 = data['room1']
+                await self.delete_room(room1)
+                self.user.remove(self.user[loser1 - 1])
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'message': 'success',
+                        'userCount': len(self.user)
+                    }
+                )
+
+            if data['type'] == 'final':
+                roomID = await self.create_game_room(self.user[0][0])
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'message': 'roomID',
+                        'room1': roomID,
+                    }
+                )
+            if data['type'] == 'end':
+                print('win')
+
+
+            if data['type'] == 'win':
+                winner = self.scope['user']
+                for p in self.user:
+                    if p[0] != winner:
+                        loser = p[0]
+                        break
+                await set_win_lose(winner, loser)
+                await self.channel_layer.group_send(
+                    self.room_group_name, {
+                        'type': 'start_message', 
+                        'message': 'end_game'
+                    }
+                )
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'message': 'fail'}))
+
+    async def start_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({'type': message}))
+
+    async def tournamnet_start(self, event):
+        # message = event['message']
+        room1 = event['room1']
+        room2 = event['room2']
+        for i in range(len(self.user)):
+            if self.user[i][0] == self.scope['user']:
+                usernum = i + 1
+                break
+        await self.send(text_data=json.dumps({
+            'type': 'start',
+            'message': 'roomID',
+            'username': self.scope['user'].username,
+            'room1': room1,
+            'room2': room2,
+            'usernum': usernum
         }))
 
     @database_sync_to_async
@@ -444,329 +718,6 @@ class GameConsumer(AsyncWebsocketConsumer):
             'guests': guest_profiles
         }
 
-    async def send_connect_message(self, sequence, message):
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'start_message',
-                'message' : message,
-                'sequence': sequence
-            },
-        )
-
-    async def disconnect(self, close_code):
-        """
-        사용자와 WebSocket 연결이 끊겼을 때 호출
-        """
-        player = self.scope['user']
-
-        # Leave room group
-        type = await get_host(self.room_name, player)
-        if type == 'host':
-            await self.channel_layer.group_send(
-                self.room_group_name, {'type': 'send_message', 'message': "disconnect"},
-            )
-
-        await self.channel_layer.group_discard(
-            self.room_group_name, self.channel_name
-        )
-
-    async def receive(self, text_data):
-        try:
-            data = json.loads(text_data)
-
-            if data['type'] == 'ready':
-                user_number = data['user_num']
-                await self.send_connect_message(user_number, 'ready')
-            if data['type'] == 'start':
-                await self.send_start_message('start')
-
-            if data['type'] == 'user_update':
-                if data['id'] == '1':
-                    await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '1',
-                                               'posY': data['posY'], 'skill': data['skill'],
-                                               'skillpower': data["skillpower"], 'score': data['score']}
-                    )
-                elif data['id'] == '2':
-                    await self.channel_layer.group_send(
-                        self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '2',
-                                               'posY': data['posY'], 'skill': data['skill'],
-                                               'skillpower': data["skillpower"], 'score': data['score']}
-                    )
-            if data['type'] == 'ball_update':
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
-                )
-            if data['type'] == 'win':
-                await set_win_lose(self.scope['user'], self.room_name)
-                await self.channel_layer.group_send(
-                    self.room_group_name, 
-                    {
-                        'type': 'send_message', 
-                        'message': 'end_game'
-                    }
-                )
-        except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({'message': 'fail'}))
-
-    async def send_start_message(self, message):
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'send_message',
-                'message': message
-            },
-        )
-
-    async def start_message(self, event):
-        sequence = event['sequence']
-        message = event['message']
-        await self.send(text_data=json.dumps({
-            'type' : message,
-            'sequence': sequence
-        }))
-
-    async def send_message(self, event):
-        message = event['message']
-        await self.send(text_data=json.dumps({
-            'type': message
-        }))
-
-    async def user_update(self, event):
-        message = event['message']
-        user = event['user']
-        posY = event['posY']
-        skill = event['skill']
-        score = event['score']
-        skillpower = event['skillpower']
-        await self.send(text_data=json.dumps({'type': message, 'user': user, 'posY': posY,
-                                              'skill': skill, 'skillpower': skillpower, 'score': score}))
-
-    async def ball_update(self, event):
-        message = event['message']
-        posX = event['posX']
-        posY = event['posY']
-        await self.send(text_data=json.dumps({'type': message, 'posY': posY, 'posX': posX}))
-
-    async def picture_update(self, event):
-        message = event['message']
-        user_info = []
-        for u in self.user:
-            user_profile = u[0].profile
-            user_info.append({
-                'username': u.username,
-                'picture': user_profile.get_picture()
-            })
-
-        await self.send(text_data=json.dumps({'type': user_info}))
-
-
-class TournamentConsumer(AsyncWebsocketConsumer):
-    user = []
-    game = False
-
-    host = ''
-
-    async def connect(self):
-        self.room_name = self.scope['url_route']['kwargs']['room_name']
-        self.room_group_name = f'room_{self.room_name}'
-        player = self.scope['user']
-        if len(self.user) == 4:
-            await self.send(text_data=json.dumps({'message': 'full room'}))
-
-        self.user.append([player, False])
-        # print(self.user)
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-
-        if len(self.user) == 1:
-            await self.accept()
-            await self.send(text_data=json.dumps({"type": "user", "user": "1"}))
-            await self.channel_layer.group_send(
-                self.room_group_name, 
-                {
-                    'type': 'start_message',
-                    'message': "user1 connect"
-                },
-            )
-            self.host = self.user[0][0].username
-        else:
-            num = len(self.user)
-            await self.accept()
-            await self.send(text_data=json.dumps({"type": "user", "user": str(num)}))
-            await self.channel_layer.group_send(
-                self.room_group_name, 
-                {
-                    'type': 'start_message',
-                    'message': "user" + str(num) + "connect"
-                },
-            )
-
-    async def disconnect(self, close_code):
-        """
-        사용자와 WebSocket 연결이 끊겼을 때 호출
-        """
-        player = self.scope['user']
-        for p in self.user:
-            if p[0] == player:
-                self.user.remove(p)
-
-        type = await get_host(self.host, player)
-        if type == 'host':
-            await self.channel_layer.group_send(
-                self.room_group_name, 
-                {
-                    'type': 'start_message', 
-                    'message': "disconnect"
-                },
-            )
-
-        await self.channel_layer.group_discard(
-            self.room_group_name, self.channel_name
-        )
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-
-        try:
-            if data['type'] == 'ready':
-                if data['user'] == "1":
-                    if len(self.user) == 4 and self.user[1][1] and self.user[2][1] and self.user[3][1]:
-                        self.user[0][1] = True
-                        await self.channel_layer.group_send(
-                            self.room_group_name,
-                            {
-                                'type': 'start_message',
-                                'message': 'gameStart'
-                            }
-                        )
-                    else:
-                        await self.send(text_data=json.dumps({'message': 'not ready'}))
-                elif data['user'] == "2":
-                    self.user[1][1] = True
-                elif data['user'] == "3":
-                    self.user[2][1] = True
-                elif data['user'] == "4":
-                    self.user[3][1] = True
-
-            if data['type'] == 'gameStart':
-                if self.host == data['user']:
-                    if self.game == False and self.user[0][1] and self.user[1][1] and self.user[2][1] and self.user[3][
-                        1]:
-                        self.game = True
-                        for p in self.user:
-                            p[1] = False
-                        if len(self.user) == 4:
-                            room1 = await self.create_game_room(self.user[0][0])
-                            room2 = await self.create_game_room(self.user[2][0])
-                            await self.channel_layer.group_send(
-                                self.room_group_name,
-                                {
-                                    'type': 'tournamnet_start',
-                                    'room1': room1,
-                                    'room2': room2
-                                }
-                            )
-            # if data['type'] == 'makeRoom':
-            #     if len(self.user) == 4:
-            #         room1 = await self.create_game_room(self.user[0][0])
-            #         room2 = await self.create_game_room(self.user[2][0])
-            #         await self.channel_layer.group_send(
-            #             self.room_group_name,
-            #             {
-            #                 'message': 'roomID',
-            #                 'room1': room1,
-            #                 'room2': room2
-            #             }
-            #         )
-
-
-            if data['type'] == 'firstResult':
-                loser1 = data['loserId']
-                room1 = data['room1']
-                await self.delete_room(room1)
-                self.user.remove(self.user[loser1 - 1])
-
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'message': 'success',
-                        'userCount': len(self.user)
-                    }
-                )
-
-            if data['type'] == 'final':
-                roomID = await self.create_game_room(self.user[0][0])
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'message': 'roomID',
-                        'room1': roomID,
-                    }
-                )
-            if data['type'] == 'end':
-                print('win')
-
-
-            # if data['type'] == 'user_update':
-            #     if data['id'] == '1':
-            #         await self.channel_layer.group_send(
-            #             self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '1',
-            #                                    'posY': data['posY'], 'skill': data['skill'],
-            #                                    'skillpower': data["skillpower"], 'score': data['score']}
-            #         )
-            #     elif data['id'] == '2':
-            #         await self.channel_layer.group_send(
-            #             self.room_group_name, {'type': 'user_update', 'message': 'user_update', 'user': '2',
-            #                                    'posY': data['posY'], 'skill': data['skill'],
-            #                                    'skillpower': data["skillpower"], 'score': data['score']}
-            #         )
-            # if data['type'] == 'ball_update':
-            #     await self.channel_layer.group_send(
-            #         self.room_group_name,
-            #         {'type': 'ball_update', 'message': 'ball_update', 'posX': data['posX'], 'posY': data['posY']}
-            #     )
-            if data['type'] == 'win':
-                winner = self.scope['user']
-                for p in self.user:
-                    if p[0] != winner:
-                        loser = p[0]
-                        break
-                await set_win_lose(winner, loser)
-                await self.channel_layer.group_send(
-                    self.room_group_name, {
-                        'type': 'start_message', 
-                        'message': 'end_game'
-                    }
-                )
-        except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({'message': 'fail'}))
-
-    async def start_message(self, event):
-        message = event['message']
-        await self.send(text_data=json.dumps({'type': message}))
-
-    async def tournamnet_start(self, event):
-        # message = event['message']
-        room1 = event['room1']
-        room2 = event['room2']
-        for i in range(len(self.user)):
-            if self.user[i][0] == self.scope['user']:
-                usernum = i + 1
-                break
-        await self.send(text_data=json.dumps({
-            'type': 'start',
-            'message': 'roomID',
-            'username': self.scope['user'].username,
-            'room1': room1,
-            'room2': room2,
-            'usernum': usernum
-        }))
-
     @database_sync_to_async
     def create_game_room(self, host):
         game_room = GameRoom.objects.create(
@@ -786,6 +737,57 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             user.game_room = None
             user.save()
         game.delete()
+
+    async def send_connect_message(self, type, message):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'fun_connect_message',
+                'message': message,
+                'input': type
+            }
+        )
+
+    async def send_ready_message(self , message, user_number):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'fun_ready_message',
+                'message' : message,
+                'user_number' : user_number
+            },
+        )
+
+    async def send_start_message(self, message):
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'fun_start_message',
+                'message': message
+            },
+        )
+
+    async def fun_connect_message(self, event):
+        message = event['message']
+        type = event['input']
+        await self.send(text_data=json.dumps({
+            'type': type,
+            'message': message
+        }))
+
+    async def fun_ready_message(self, event):
+        message = event['message']
+        user_number = event['user_number']
+        await self.send(text_data=json.dumps({
+            'type' : message,
+            'user_number' : user_number
+        }))
+
+    async def fun_send_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({
+            'type' : message,
+        }))
 
 
 @database_sync_to_async
