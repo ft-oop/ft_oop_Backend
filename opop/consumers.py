@@ -104,7 +104,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                         message = await self.generate_users_information(host, guest)
                         print('create_message_clear!')
 
-                        await self.send_message_to_room("enter_room", group_name, message)
+                        await self.send_message_to_room("enter_room", group_name, message, random_match_room.id)
                     except Exception as e:
                         print('에러 발생!', e)
                         if random_match_room is not None:
@@ -196,21 +196,24 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         )
         return group_name
 
-    async def send_message_to_room(self, type_input, group_name, message):
+    async def send_message_to_room(self, type_input, group_name, message, room_id):
         print('메세지 전송을 시작합니다...')
         await self.channel_layer.group_send(
             group_name,
             {
                 'type': type_input,
-                'message': message
+                'message': message,
+                'room_id': room_id
             }
         )
 
     async def enter_room(self, event):
         message = event['message']
+        room_id = event['room_id']
         await self.send(text_data=json.dumps({
             'type': 'enter_room',
-            'message': message
+            'message': message,
+            'room_id': room_id
         }))
 
     def get_user_info(self, user):
@@ -334,6 +337,7 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
         self.room_name = self.scope['url_route']['kwargs']['room_name']
+        print('connected, room_name = ', self.room_name)
         self.room_group_name = f'room_{self.room_name}'
 
         player = self.scope['user']
