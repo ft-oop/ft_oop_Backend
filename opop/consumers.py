@@ -13,7 +13,7 @@ online_users = set()
 random_match_users = set()
 user_channel_names = {}
 connected_users = {}
-
+sequence = 0
 
 @database_sync_to_async
 def get_user_info_from_token(jwt):
@@ -314,13 +314,11 @@ class GameConsumer(AsyncWebsocketConsumer):
     game2 = False
 
     host = ''
-    sequence = 0
-
     async def connect(self):
-        var = ++self.sequence
-        if var == 3:
-            self.sequence = 1
-            var = self.sequence
+        global sequence
+        sequence += 1
+        if sequence > 2:
+           sequence = 1
 
         await self.accept()
         self.room_name = self.scope['url_route']['kwargs']['room_name']
@@ -333,7 +331,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-        await self.send_connect_message(var)
+        await self.send_connect_message(sequence)
 
     async def send_connect_message(self, sequence):
         await self.channel_layer.group_send(
@@ -368,9 +366,9 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         try:
             data = json.loads(text_data)
-            user_number = data['user_num']
 
             if data['type'] == 'ready':
+                user_number = data['user_num']
                 await self.send_connect_message(user_number)
             if data['type'] == 'start':
                 await self.send_start_message('start')
@@ -418,6 +416,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def start_message(self, event):
         sequence = event['sequence']
         await self.send(text_data=json.dumps({
+            'type' : 'username',
             'sequence': sequence
         }))
 
