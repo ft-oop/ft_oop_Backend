@@ -291,11 +291,12 @@ class MatchSerializer(serializers.ModelSerializer):
 
 
 class UserInfoSerializer(serializers.ModelSerializer):
+    match_history = MatchSerializer(many=True, read_only=True)
     picture = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
-        fields = ['picture', 'total_win', 'total_lose',]
+        fields = ['picture', 'total_win', 'total_lose', 'match_history',]
 
     def get_picture(self, obj):
         if obj.image:

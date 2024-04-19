@@ -126,9 +126,9 @@ def get_my_page(request):
     except RuntimeError:
         return HttpResponse(status=404, message="User Not Found")
     my_page_dto = MyPageSerializer(user).data
-    matches = user.match_history.all()
-    match_histories = MatchSerializer(matches, many=True).data
-    my_page_dto['match_histories'] = match_histories
+    # matches = user.match_history.all()
+    # match_histories = MatchSerializer(matches, many=True).data
+    # my_page_dto['match_histories'] = match_histories
     return JsonResponse(my_page_dto, safe=False, status=200)
 
 
