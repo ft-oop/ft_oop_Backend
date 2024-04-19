@@ -273,7 +273,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 if len(self.game_users) == 2:
                     service = NoticeConsumer
                     user = await self.get_user(sender_profile)
-                    game_room = await service.create_random_match_room(user)
+                    guest = await self.get_user(receiver_profile)
+                    game_room = await service.create_random_match_room(user, guest)
                     await self.send_game_enter_message('enter_room', game_room.id)
                     self.game_users.clear()
             elif message == 'cancel_game_in_chat':
@@ -376,6 +377,9 @@ class GameConsumer(AsyncWebsocketConsumer):
         # Leave room group
         type = await self.get_host(player)
         if type == 'host':
+            await self.channel_layer.group_discard(
+                self.room_group_name, self.channel_name
+            )
             await self.send_message("disconnect")
 
         await self.channel_layer.group_discard(
@@ -581,15 +585,15 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         
 
     async def disconnect(self, close_code):
-        """
-        사용자와 WebSocket 연결이 끊겼을 때 호출
-        """
         player = self.scope['user']
 
         # Leave room group
-        print('room_name in disconnect function ->!!!!!!!!', self.room_name)
+        # print('room_name in disconnect function ->!!!!!!!!', self.room_name)
         type = await self.get_host(player)
         if type == 'host':
+            await self.channel_layer.group_discard(
+                self.room_group_name, self.channel_name
+            )
             await self.send_message("disconnect")
 
         await self.channel_layer.group_discard(
@@ -617,18 +621,8 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             if data['type'] == 'finalReady':
                 user_number = data['user_num']
                 await self.send_ready_message('ready', user_number)
-            # if data['type'] == 'finalStart':
-            #     room1 = data['room1']
-            #     await self.delete_room(room1)
-                
-            #     await self.channel_layer.group_send(
-            #         self.room_group_name,
-            #         {
-            #             'message': 'success',
-            #             'userCount': 1
-            #         }
-            #     )
-            if data['type'] == 'win':
+
+            if data['type'] == 'winner':
                 player = self.scope['user']
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -636,7 +630,8 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         'type': 'winner_message',
                         'message': 'win',
                         'winner': await self.get_player_nickname(player),
-                        'picture': await self.get_picture(player.profile)
+                        'picture': await self.get_picture(player.profile),
+                        'roomId': data['roomId'],
                     }
                 )
 
@@ -677,10 +672,12 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         message = event['message']
         winner = event['winner']
         picture = event['picture']
+        roomId = event['roomId']
         await self.send(text_data=json.dumps({
             'type': message,
             'nickname': winner,
-            'picutre': picture
+            'picutre': picture,
+            'roomId': roomId,
         }))
 
     @database_sync_to_async
