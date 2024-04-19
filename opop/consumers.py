@@ -48,6 +48,7 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         # if self.user.username in user_channel_names:
         #     del user_channel_names[self.user.username]
         online_users.remove(self.scope['user'])
+        random_match_users.remove(self.scope['user'])
         user_id = self.scope['user'].id
         if user_id in connected_users:
             del connected_users[user_id]
