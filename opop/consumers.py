@@ -414,6 +414,9 @@ class GameConsumer(AsyncWebsocketConsumer):
             if data['type'] == 'win':
                 await set_win_lose(self.scope['user'], self.room_name)
                 await self.send_message('end_game')
+            if data['type'] == 'tournamentWin':
+                await set_lose(self.scope['user'], self.room_name)
+                await self.send_message('end_game')
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -604,15 +607,26 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-            if data['type'] == 'firstResult':
-                room1 = data['room1']
-                await self.delete_room(room1)
+            # if data['type'] == 'finalStart':
+            #     room1 = data['room1']
+            #     await self.delete_room(room1)
                 
+            #     await self.channel_layer.group_send(
+            #         self.room_group_name,
+            #         {
+            #             'message': 'success',
+            #             'userCount': 1
+            #         }
+            #     )
+            if data['tpye'] == 'win':
+                player = self.scope['user']
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
-                        'message': 'success',
-                        'userCount': 1
+                        'type': 'winner_message',
+                        'message': 'win',
+                        'winner': player.profile.nick_name,
+                        'picture': await self.get_picture(player.profile)
                     }
                 )
 
@@ -662,6 +676,16 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         message = event['message']
         await self.send(text_data=json.dumps({
             'type': message
+        }))
+
+    async def winner_message(self, event):
+        message = event['message']
+        winner = event['winner']
+        picture = event['picture']
+        await self.send(text_data=json.dumps({
+            'type': message,
+            'nickname': winner,
+            'picutre': picture
         }))
 
     @database_sync_to_async
@@ -726,6 +750,8 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             password="",
             host=host.user.username
         )
+        host.game_room = game_room
+        host.save()
         return game_room.id
 
     @database_sync_to_async
@@ -828,5 +854,21 @@ def set_win_lose(winner, room_id):
         user=loser,
         result='lose',
         game_type=0,
+        match_date=datetime.now()
+    )
+
+@database_sync_to_async
+def set_lose(winner, room_id):
+    users = UserProfile.objects.filter(game_room_id=room_id)
+    loser = users.exclude(id=winner.id).first()
+
+    loser.total_lose += 1
+    loser.save()
+
+    MatchHistory.objects.create(
+        opponent_name='tournament',
+        user=loser,
+        result='lose',
+        game_type=1,
         match_date=datetime.now()
     )
