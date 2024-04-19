@@ -591,9 +591,10 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 user_number = data['user_num']
                 await self.send_ready_message('ready', user_number)
             if data['type'] == 'start':
+                data['user1']
                 await self.send_start_message('start')
-                room1 = await self.create_game_room(self.user[0][0])
-                room2 = await self.create_game_room(self.user[2][0])
+                room1 = await self.create_game_room(data['user1'])
+                room2 = await self.create_game_room(data['user2'])
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -604,21 +605,20 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 )
 
             if data['type'] == 'firstResult':
-                loser1 = data['loserId']
+                
                 room1 = data['room1']
                 await self.delete_room(room1)
-                self.user.remove(self.user[loser1 - 1])
-
+                
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         'message': 'success',
-                        'userCount': len(self.user)
+                        'userCount': 1
                     }
                 )
 
             if data['type'] == 'final':
-                roomID = await self.create_game_room(self.user[0][0])
+                roomID = await self.create_game_room()
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -651,7 +651,6 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({'type': message}))
 
     async def tournamnet_start(self, event):
-        # message = event['message']
         room1 = event['room1']
         room2 = event['room2']
         for i in range(len(self.user)):
@@ -719,7 +718,8 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         }
 
     @database_sync_to_async
-    def create_game_room(self, host):
+    def create_game_room(self, host_name):
+        host = User.objects.filter(username=host_name)
         game_room = GameRoom.objects.create(
             room_name='Tournament' + host.username,
             room_type=0,
