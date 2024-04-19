@@ -606,7 +606,9 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         'room2': room2
                     }
                 )
-
+            if data['type'] == 'finalReady':
+                user_number = data['user_num']
+                await self.send_ready_message('ready', user_number)
             # if data['type'] == 'finalStart':
             #     room1 = data['room1']
             #     await self.delete_room(room1)
@@ -630,7 +632,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-            if data['type'] == 'final':
+            if data['type'] == 'finalStart':
                 roomID = await self.create_game_room()
                 await self.channel_layer.group_send(
                     self.room_group_name,
