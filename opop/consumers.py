@@ -415,7 +415,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await set_win_lose(self.scope['user'], self.room_name)
                 await self.send_message('end_game')
             if data['type'] == 'tournamentWin':
-                await set_lose(self.scope['user'], self.room_name)
+                await set_tournament_lose(self.scope['user'], self.room_name)
                 await self.send_message('end_game')
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
@@ -846,19 +846,19 @@ def set_win_lose(winner, room_id):
         opponent_name=loser.user.username,
         user=winner.profile,
         result='win',
-        game_type=0,
+        game_type='0',
         match_date=datetime.now()
     )
     MatchHistory.objects.create(
         opponent_name=winner.username,
         user=loser,
         result='lose',
-        game_type=0,
+        game_type='0',
         match_date=datetime.now()
     )
 
 @database_sync_to_async
-def set_lose(winner, room_id):
+def set_tournament_lose(winner, room_id):
     users = UserProfile.objects.filter(game_room_id=room_id)
     loser = users.exclude(id=winner.id).first()
 
@@ -869,6 +869,6 @@ def set_lose(winner, room_id):
         opponent_name='tournament',
         user=loser,
         result='lose',
-        game_type=1,
+        game_type='1',
         match_date=datetime.now()
     )
