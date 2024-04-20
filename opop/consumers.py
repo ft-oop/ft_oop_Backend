@@ -419,7 +419,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'winner_message',
                         'message': 'exit',
-                        'winner': await self.get_player_nickname(player),
+                        'winner': await self.get_player_username(player),
                         'picture': await self.get_picture(player),
                     }
                 )
@@ -452,8 +452,8 @@ class GameConsumer(AsyncWebsocketConsumer):
     def get_user(self, username):
         return User.objects.get(username=username)
     @database_sync_to_async
-    def get_player_nickname(self, player):
-        return player.profile.nick_name
+    def get_player_username(self, player):
+        return player.username
     
     @database_sync_to_async
     def get_user_participaints(self, room):
@@ -525,7 +525,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         picture = event['picture']
         await self.send(text_data=json.dumps({
             'type': message,
-            'username': winner,
+            'winner': winner,
             'picture': picture,
         }))
     
@@ -630,7 +630,6 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 user_number = data['user_num']
                 await self.send_ready_message('ready', user_number)
             if data['type'] == 'start':
-                # await self.send_start_message('start')
                 room1 = await self.create_game_room(data['host1'])
                 room2 = await self.create_game_room(data['host2'])
                 await self.channel_layer.group_send(
@@ -687,9 +686,10 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         'message': 'finalWinner',
                         'winner': await self.get_player_nickname(player),
                         'picture': await self.get_picture(player.profile),
-                        'roomId': data['roomId'],
+                        'roomId': self.room_name,
                     }
                 )
+                await self.delete_room(self.room_name)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -908,7 +908,6 @@ def set_win_lose(winner, room_id):
 
 @database_sync_to_async
 def set_tournament_lose(winner, room_id):
-    # if GameRoom.objects.filter(id=room_id).exists:
     users = UserProfile.objects.filter(game_room_id=room_id)
     loser = users.exclude(id=winner.id).first()
 
