@@ -419,11 +419,16 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.send_message('end_game')
             if data['type'] == 'tournamentWin':
                 await set_tournament_lose(self.scope['user'], self.room_name)
+                await self.delete_done_room(self.room_name)
                 await self.send_message('end_game')
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
 
+    @database_sync_to_async
+    def delete_done_room(self, id):
+        game_room = GameRoom.objects.filter(id=id)
+        game_room.delete()
     @database_sync_to_async
     def get_room_info(self, room_id):
         return GameRoom.objects.get(id=room_id)
@@ -620,7 +625,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 )
             if data['type'] == 'finalReady':
                 user_number = data['user_num']
-                await self.send_ready_message('ready', user_number)
+                await self.send_ready_message('finalReady', user_number)
 
             if data['type'] == 'winner':
                 player = self.scope['user']
@@ -634,14 +639,23 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         'roomId': data['roomId'],
                     }
                 )
-
+            if data['type'] == 'isPresent':
+                exist = await self.is_present_room(data['roomId1'], data['roomId2'])
+                if exist is True:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'start_message',
+                            'message' : 'remove'
+                        }
+                    )
             if data['type'] == 'finalStart':
                 roomID = await self.create_game_room()
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
-                        'message': 'roomID',
-                        'room1': roomID,
+                        'type': 'tournamnet_final_start',
+                        'roomId': roomID
                     }
                 )
             if data['type'] == 'end':
@@ -662,6 +676,13 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             'room2': room2,
         }))
 
+    async def tournamnet_final_start(self, event):
+        roomId = event['roomId']
+        await self.send(text_data=json.dumps({
+            'type': 'finalStart',
+            'roomId': roomId,
+        }))
+    
     async def fun_start_message(self, event):
         message = event['message']
         await self.send(text_data=json.dumps({
@@ -676,10 +697,13 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': message,
             'nickname': winner,
-            'picutre': picture,
+            'picture': picture,
             'roomId': roomId,
         }))
 
+    @database_sync_to_async
+    def is_present_room(self, id1, id2):
+        return not GameRoom.objects.filter(id=id1).exists() and not GameRoom.objects.filter(id=id2).exists()
     @database_sync_to_async
     def get_room_info(self, room_id):
         return GameRoom.objects.get(id=room_id)
@@ -786,7 +810,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    async def send_ready_message(self , message, user_number):
+    async def send_ready_message(self, message, user_number):
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -854,16 +878,18 @@ def set_win_lose(winner, room_id):
 
 @database_sync_to_async
 def set_tournament_lose(winner, room_id):
-    users = UserProfile.objects.filter(game_room_id=room_id)
-    loser = users.exclude(id=winner.id).first()
+    if GameRoom.objects.filter(id=room_id).exists:
+        users = UserProfile.objects.filter(game_room_id=room_id)
+        loser = users.exclude(id=winner.id).first()
 
-    loser.total_lose += 1
-    loser.save()
+        if loser is not None:
+            loser.total_lose += 1
+            loser.save()
 
-    MatchHistory.objects.create(
-        opponent_name='tournament',
-        user=loser,
-        result='lose',
-        game_type='1',
-        match_date=datetime.now()
-    )
+        MatchHistory.objects.create(
+            opponent_name='tournament',
+            user=loser,
+            result='lose',
+            game_type='1',
+            match_date=datetime.now()
+        )
