@@ -428,6 +428,8 @@ class TournamentRoomSerializer(serializers.ModelSerializer):
     def enter_tournament_room(self, nick_name, user_id, password, room_id):
         game_room = get_object_or_404(GameRoom, id=room_id)
         users_in_game = UserProfile.objects.filter(game_room=game_room)
+        if not nick_name.strip() and nick_name:
+            raise serializers.ValidationError("Invalid nickname")
         if game_room.room_type != 1:
             raise serializers.ValidationError("Invalid Room Type")
         if game_room.password != "" and verify_password(password, game_room.password) is False:

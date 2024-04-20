@@ -678,7 +678,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                         'roomId': self.room_name,
                     }
                 )
-                await self.delete_room(self.room_name)
+                await self.delete_room(int(self.room_name))
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -796,10 +796,6 @@ class TournamentConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def delete_room(self, id):
         game = GameRoom.objects.filter(id=id)
-        users = UserProfile.objects.filter(gmae_room=game)
-        for user in users:
-            user.game_room = None
-            user.save()
         game.delete()
 
     @database_sync_to_async
