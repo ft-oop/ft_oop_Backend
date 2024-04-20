@@ -43,16 +43,17 @@ class GameRoomSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def exit_game_room(self, user_id, room_id):
-        game = get_object_or_404(GameRoom, id=room_id)
+        game = GameRoom.objects.filter(id=room_id).first()
+        if game is None:
+            return
+
         user = User.objects.get(id=user_id)
-        print(user.username)
         if game.get_host() == user.username:
             users_in_game = UserProfile.objects.filter(game_room=game)
             for guest in users_in_game:
                 guest.game_room = None
                 guest.save()
             game.delete()
-            return
         user.profile.game_room = None
         user.profile.save()
 
