@@ -81,17 +81,14 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
             if data['message'] == 'random_match':
                 # async with self.lock:
-                user = self.scope['user']
-                random_match_users.add(user)
+                random_match_users.add(self.scope['user'])
                 user_name = data['name']
-                print(user_name)
-                # 성공적으로 큐에 담겼다면, 메세지를 보냅니다.
+
                 await self.send(text_data=json.dumps({
                     'message': user_name + 'is inserted!',
                     'len': len(random_match_users)
                 }))
-                # 2명의 유저가 매칭 큐에 담겼다면, 방을 생성합니다.
-                # 이후 해당 유저들을 같은 소켓 룸에 담아두고, 메세지를 전송합니다.
+
                 if len(random_match_users) == 2:
                     try:
                         host = random_match_users.pop()
@@ -106,16 +103,14 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                         print('에러 발생!', e)
                         if random_match_room is not None:
                             await database_sync_to_async(random_match_room.delete)()
-                        random_match_users.remove(host)
-                        random_match_users.remove(guest)
+                        random_match_users.discard(host)
+                        random_match_users.discard(guest)
 
             if data['message'] == 'random_match_cancel':
-                user_profile = self.scope['user']
-
-                random_match_users.remove(user_profile)
+                random_match_users.discard(self.scope['user'])
 
                 await self.send(text_data=json.dumps({
-                    'message': 'match canceled!'
+                    'message': 'match_canceled'
                 }))
             if data['message'] == 'random_match_clear':
                 room_id = data['room_id']
@@ -378,12 +373,15 @@ class GameConsumer(AsyncWebsocketConsumer):
         type = await self.get_host(player)
         if type == 'host':
             await self.channel_layer.group_discard(
-                self.room_group_name, self.channel_name
+                self.room_group_name,
+                self.channel_name
             )
             await self.send_message("disconnect")
+        print('exit clear? ', self.channel_name)
 
         await self.channel_layer.group_discard(
-            self.room_group_name, self.channel_name
+            self.room_group_name,
+            self.channel_name
         )
 
     async def receive(self, text_data):
