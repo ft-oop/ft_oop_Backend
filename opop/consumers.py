@@ -421,9 +421,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.send_message('end_game')
             if data['type'] == 'back_room':
                 room_id = data['room_id']
-                await NoticeConsumer.exit_room(self.scope['user'])
-                message = await self.generate_user_info_in_game_room(room_id)
-                await self.send_connect_message('username', message)
+                room = await self.get_room_info(room_id)
+                host = room.host
+                if host is not self.scope['user'].username:
+                    await NoticeConsumer.exit_room(self.scope['user'])
+                    message = await self.generate_user_info_in_game_room(room_id)
+                    await self.send_connect_message('username', message)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -688,9 +691,11 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 await self.delete_room(int(self.room_name))
             if data['type'] == 'back_room':
                 room_id = data['room_id']
-                await NoticeConsumer.exit_room(self.scope['user'])
-                message = await self.generate_user_info_in_game_room(room_id)
-                await self.send_connect_message('username', message)
+                room = await GameConsumer.get_room_info(room_id)
+                if room.host is not self.scope['user'].username:
+                    await NoticeConsumer.exit_room(self.scope['user'])
+                    message = await self.generate_user_info_in_game_room(room_id)
+                    await self.send_connect_message('username', message)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
