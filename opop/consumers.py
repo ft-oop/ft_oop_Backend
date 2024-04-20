@@ -421,7 +421,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.send_message('end_game')
             if data['type'] == 'back_room':
                 room_id = data['room_id']
-                await self.exit_room(self.scope['user'])
+                await NoticeConsumer.exit_room(self.scope['user'])
                 message = await self.generate_user_info_in_game_room(room_id)
                 await self.send_connect_message('username', message)
         except json.JSONDecodeError:
@@ -688,7 +688,7 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                 await self.delete_room(int(self.room_name))
             if data['type'] == 'back_room':
                 room_id = data['room_id']
-                await self.exit_room(self.scope['user'])
+                await NoticeConsumer.exit_room(self.scope['user'])
                 message = await self.generate_user_info_in_game_room(room_id)
                 await self.send_connect_message('username', message)
         except json.JSONDecodeError:
