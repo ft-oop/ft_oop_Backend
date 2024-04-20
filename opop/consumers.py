@@ -419,6 +419,10 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await set_tournament_lose(self.scope['user'], self.room_name)
                 await self.delete_done_room(self.room_name)
                 await self.send_message('end_game')
+            if data['type'] == 'back_room':
+                room_id = data['room_id']
+                message = await self.generate_user_info_in_game_room(room_id)
+                await self.send_connect_message('username', message)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -604,12 +608,14 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         type = await self.get_host(player)
         if type == 'host':
             await self.channel_layer.group_discard(
-                self.room_group_name, self.channel_name
+                self.room_group_name,
+                self.channel_name
             )
             await self.send_message("disconnect")
 
         await self.channel_layer.group_discard(
-            self.room_group_name, self.channel_name
+            self.room_group_name,
+            self.channel_name
         )
 
     async def receive(self, text_data):
@@ -679,6 +685,10 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                     }
                 )
                 await self.delete_room(int(self.room_name))
+            if data['type'] == 'back_room':
+                room_id = data['room_id']
+                message = await self.generate_user_info_in_game_room(room_id)
+                await self.send_connect_message('username', message)
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
