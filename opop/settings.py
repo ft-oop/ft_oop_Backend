@@ -165,7 +165,7 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:8000',
 
 
-    'http://10.19.214.178:8000'
+    'http://10.13.7.6:8000'
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
