@@ -271,7 +271,7 @@ class MatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MatchHistory
-        fields = ['opponent', 'winner', 'date']
+        fields = ['opponent', 'winner', 'date', 'game_type']
 
     def get_winner(self, obj):
         if obj.result == 'win':
@@ -285,7 +285,8 @@ class MatchSerializer(serializers.ModelSerializer):
         representation = {
             'opponent_name': instance.opponent_name,
             'winner': self.get_winner(instance),
-            'match_date': instance.match_date
+            'match_date': instance.match_date,
+            'game_type': instance.game_type
         }
         return representation
 
