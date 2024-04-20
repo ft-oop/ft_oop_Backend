@@ -7,11 +7,11 @@ from django.dispatch import receiver
 # Create your models here.
 class GameRoom(models.Model):
     id = models.AutoField(primary_key=True)
-    room_name = models.CharField(max_length=64)
+    room_name = models.CharField(max_length=100)
     room_type = models.IntegerField(default=0)
     limits = models.IntegerField(default=0)
-    password = models.CharField(max_length=1024)
-    host = models.CharField(max_length=10)
+    password = models.CharField(max_length=100)
+    host = models.CharField(max_length=100)
 
     def __str__(self):
         return self.room_name
@@ -53,7 +53,7 @@ class UserProfile(models.Model):
     id = models.AutoField(primary_key=True)
 
     oauth_id = models.IntegerField(default=0)
-    nick_name = models.CharField(max_length=15, default='')
+    nick_name = models.CharField(max_length=30, default='')
 
     total_win = models.IntegerField(default=0)
     total_lose = models.IntegerField(default=0)
@@ -98,7 +98,7 @@ class UserProfile(models.Model):
 
 class MatchHistory(models.Model):
     id = models.AutoField(primary_key=True)
-    opponent_name = models.CharField(max_length=10)
+    opponent_name = models.CharField(max_length=100)
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='match_history')
     result = models.CharField(max_length=10)
     game_type = models.CharField(max_length=10)
