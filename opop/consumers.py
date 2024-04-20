@@ -44,8 +44,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         print('logout.......')
-        # if self.user.username in user_channel_names:
-        #     del user_channel_names[self.user.username]
         online_users.discard(self.scope['user'])
         random_match_users.discard(self.scope['user'])
         user_id = self.scope['user'].id
@@ -58,13 +56,10 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
-        print('received message: ' + text_data)
         try:
             data = json.loads(text_data)
-            print('type is..... ' + data['message'])
 
             if data['message'] == 'ping':
-                print(data['message'])
                 await self.send(text_data=json.dumps({'message': 'pong'}))
 
             if data['message'] == 'getRoomList':
@@ -80,7 +75,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps(friend_list))
 
             if data['message'] == 'random_match':
-                # async with self.lock:
                 random_match_users.add(self.scope['user'])
                 user_name = data['name']
 
@@ -100,7 +94,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
 
                         await self.send_message_to_room("enter_room", group_name, message, random_match_room.id)
                     except Exception as e:
-                        print('에러 발생!', e)
                         if random_match_room is not None:
                             await database_sync_to_async(random_match_room.delete)()
                         random_match_users.discard(host)
@@ -189,7 +182,6 @@ class NoticeConsumer(AsyncWebsocketConsumer):
         return group_name
 
     async def send_message_to_room(self, type_input, group_name, message, room_id):
-        print('메세지 전송을 시작합니다...')
         await self.channel_layer.group_send(
             group_name,
             {
@@ -352,7 +344,6 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         self.room_name = self.scope['url_route']['kwargs']['room_name']
-        print('connected, room_name = ', self.room_name)
         self.room_group_name = f'room_{self.room_name}'
 
         await self.channel_layer.group_add(
@@ -461,7 +452,6 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_host(self, player):
-        print('in get_host func', self.room_name)
         if GameRoom.objects.filter(id=self.room_name).exists():
             game = GameRoom.objects.get(id=int(self.room_name))
             if game.host == player.username:
@@ -599,7 +589,6 @@ class TournamentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         self.room_name = self.scope['url_route']['kwargs']['room_name']
-        print('connected, room_name = ', self.room_name)
         self.room_group_name = f'room_{self.room_name}'
 
         await self.channel_layer.group_add(

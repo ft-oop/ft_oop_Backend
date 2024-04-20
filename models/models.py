@@ -64,7 +64,6 @@ class UserProfile(models.Model):
     picture = models.URLField()
     image = models.ImageField(upload_to='profile_images', blank=True, null=True)
     is_registered = models.BooleanField(default=False)
-    # on_line = models.BooleanField(default=False)
 
     def get_picture(self):
         if self.image:
@@ -82,19 +81,6 @@ class UserProfile(models.Model):
 
     def get_nick_name(self):
         return self.nick_name
-
-
-
-# @receiver(post_save, sender=User)
-# def create_user_profile(sender, instance, created, **kwargs):
-#     if created:
-#         UserProfile.objects.create(user=instance)
-#
-#
-# @receiver(post_save, sender=User)
-# def save_user_profile(sender, instance, **kwargs):
-#     instance.profile.save()
-
 
 class MatchHistory(models.Model):
     id = models.AutoField(primary_key=True)

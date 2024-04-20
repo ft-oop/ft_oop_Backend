@@ -20,7 +20,6 @@ urlpatterns = [
     path('game/tournament/nickname', views.set_host_nick_name),
     path('game', views.create_game),
     path('game/exit', views.exit_game_room),
-    # path('game/<int:room_id>/dual/kick', views.kick_user_in_dual_room),
     path('game/<int:room_id>/tournament/kick', views.kick_user_in_tournament_room),
     path('friend/add', views.add_friend),
     path('friend/delete', views.delete_friend),

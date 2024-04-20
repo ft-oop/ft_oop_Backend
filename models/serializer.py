@@ -100,8 +100,6 @@ def get_42oauth_token(code):
 
     # 기존 front에서 보낸 요청이 아닌, 서버에서 특정 api로 보내는 request
     response = requests.post(settings.FT_TOKEN_URL, data=data)
-    print(response.text)
-    print(response.status_code)
 
     if response.status_code == 200:
         ft_access_token = response.json()['access_token']
@@ -113,8 +111,6 @@ def get_42oauth_token(code):
 def get_user_info_by_api(ft_access_token):
     headers = {'Authorization': 'Bearer ' + ft_access_token}
     response = requests.get(settings.FT_USER_ATTRIBUTE_URL, headers=headers)
-    print(response.text)
-    print(response.status_code)
 
     if response.status_code == 200:
         return response.json()
@@ -223,10 +219,8 @@ class UserSerializer(serializers.ModelSerializer):
     def generate_user_information(self, user, user_profile):
         if user_profile.image:
             picture = user_profile.image.url
-            print('picture is image!!!! ', picture)
         else:
             picture = user_profile.picture
-            print('picture is url!!!!', picture)
         return {
             'id': user.id,
             'username': user.username,
@@ -238,7 +232,6 @@ class UserSerializer(serializers.ModelSerializer):
     def register_user(self, user_info):
         user_name = user_info.get('login')
         picture = user_info['image']['link']
-        print('picture ====' + picture)
         email = user_info.get('email')
         print('email ======' + email)
         oauth_id = user_info.get('id')
@@ -248,9 +241,6 @@ class UserSerializer(serializers.ModelSerializer):
         })
         if user_created:
             user.save()
-            print('user created!!!!')
-        else:
-            print('user already exists!!!!')
 
         user_profile, profile_created = UserProfile.objects.get_or_create(user=user, defaults={
             'picture': picture,
@@ -259,9 +249,6 @@ class UserSerializer(serializers.ModelSerializer):
         })
         if profile_created:
             user_profile.save()
-            print('profile created!!!!')
-        else:
-            print('profile already exists!!!!')
 
         return user
 

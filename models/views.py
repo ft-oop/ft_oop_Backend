@@ -40,7 +40,6 @@ def login(request):
     response = JsonResponse(token, safe=False, status=status.HTTP_200_OK)
     response.set_cookie('jwt', token['access'])
     return response
-    # return JsonResponse(generate_token(user), safe=False, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -190,7 +189,6 @@ def set_host_nick_name(request):
 @api_view(['POST'])
 def create_game(request):
     user_id = get_user_info_from_token(request)
-    print(user_id)
     try:
         data = json.loads(request.body)
         room_name = data['roomName']
@@ -230,22 +228,6 @@ def exit_game_room(request):
     service.exit_game_room(user_id, room_id)
     return JsonResponse('OK', safe=False, status=200)
 
-
-# @api_view(['POST'])
-# def kick_user_in_dual_room(request, room_id):
-#     user_id = get_user_info_from_token(request)
-#     try:
-#         data = json.loads(request.body)
-#         kick_user = data['kickUser']
-#     except KeyError:
-#         return JsonResponse({'error': 'Bad Request'}, status=400)
-#     service = GameRoomSerializer()
-#     try:
-#         service.kick_user_in_dual_room(room_id, user_id, kick_user)
-#     except ValidationError as e:
-#         return JsonResponse({'error': e.detail}, status=404)
-#     return JsonResponse('OK', safe=False, status=200)
-
 @api_view(['POST'])
 def kick_user_in_tournament_room(request, room_id):
     user_id = get_user_info_from_token(request)
@@ -267,11 +249,8 @@ def kick_user_in_tournament_room(request, room_id):
 def edit_my_page(request):
     user_id = get_user_info_from_token(request)
     try:
-        # data = json.loads(request.body)
         new_name = request.data.get('newName')
-        print('name은 왔니?', new_name)
         picture = request.FILES.get('picture')
-        print('request가 왔니?', picture)
     except KeyError:
         return JsonResponse({'error': 'Bad Request'}, status=status.HTTP_400_BAD_REQUEST)
     service = UserProfileSerializer()
