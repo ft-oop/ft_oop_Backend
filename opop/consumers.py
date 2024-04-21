@@ -361,11 +361,11 @@ class GameConsumer(AsyncWebsocketConsumer):
         # Leave room group
         type = await self.get_host(player)
         if type == 'host':
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
             await self.send_message("disconnect")
+        else:
+            message = await self.generate_user_info_in_game_room(self.room_name)
+            await self.send_connect_message('username', message)
+
 
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -417,12 +417,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await set_tournament_lose(self.scope['user'], self.room_name)
                 await self.delete_done_room(self.room_name)
                 await self.send_message('end_game')
-            if data['type'] == 'back_room':
-                room_id = data['room_id']
-                game_room = get_room_by_id(room_id)
-                if is_host(self.scope['user']) is not True:
-                    message = generate_user_information_in_room(game_room)
-                    await self.send_connect_message('username', message['username'])
+            # if data['type'] == 'back_room':
+            #     room_id = data['room_id']
+            #     game_room = get_room_by_id(room_id)
+            #     if is_host(self.scope['user']) is not True:
+            #         message = generate_user_information_in_room(game_room)
+            #         await self.send_connect_message('username', message)
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
@@ -437,7 +437,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         game_room.delete()
     @database_sync_to_async
     def get_room_info(self, room_id):
-        return GameRoom.objects.get(id=room_id)
+        try:
+            return GameRoom.objects.get(id=room_id)
+        except GameRoom.DoesNotExist:
+            return None
     
     @database_sync_to_async
     def get_user_profile_by_room_id(self, room):
@@ -476,22 +479,23 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def generate_user_info_in_game_room(self, room_id):
         room = await self.get_room_info(room_id)
-        users_in_game_room = await self.get_user_profile_by_room_id(room)
+        if room is not None:
+            users_in_game_room = await self.get_user_profile_by_room_id(room)
 
-        host_name = room.host
-        participaints = await self.get_user_participaints(room)
-        host = await self.get_user(host_name)
-        host_picture = await self.get_picture(host)
-        if participaints >= 2:
-            guest_profiles = await self.generate_guest_profile(users_in_game_room, host.profile)
-        else:
-            guest_profiles = []
-        
-        return {
-            'host_name': host_name,
-            'host_picture': host_picture,
-            'guests': guest_profiles
-        }
+            host_name = room.host
+            participaints = await self.get_user_participaints(room)
+            host = await self.get_user(host_name)
+            host_picture = await self.get_picture(host)
+            if participaints >= 2:
+                guest_profiles = await self.generate_guest_profile(users_in_game_room, host.profile)
+            else:
+                guest_profiles = []
+            
+            return {
+                'host_name': host_name,
+                'host_picture': host_picture,
+                'guests': guest_profiles
+            }
     
     async def send_connect_message(self, type, message):
         await self.channel_layer.group_send(
@@ -607,11 +611,10 @@ class TournamentConsumer(AsyncWebsocketConsumer):
         player = self.scope['user']
         type = await self.get_host(player)
         if type == 'host':
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
             await self.send_message("disconnect")
+        else:
+            message = await self.generate_user_info_in_game_room(self.room_name)
+            await self.send_connect_message('username', message)
 
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -685,19 +688,6 @@ class TournamentConsumer(AsyncWebsocketConsumer):
                     }
                 )
                 await self.delete_room(int(self.room_name))
-            """
-            뒤로가기 버튼을 눌렀을 때 예상되는 작동 방식
-            1. back_room 메세지를 받습니다.
-            2. BE 서버는 자신의 username을 찾고, 해당 방의 host와 일치하는지 검수합니다.
-            3. 일치한다면, 아무런 행위를 하지 않고(방 삭제 로직이 존재하므로), guest라면 userProfile의 관계를 끊은 뒤, 메세지를 전송합니다.
-            """
-            if data['type'] == 'back_room':
-                room_id = data['room_id']
-                user = self.scope['user']
-                if is_host(user, room_id) is False:
-                    NoticeConsumer.exit_room(user)
-                    message = await self.generate_user_info_in_game_room(room_id)
-                    await self.send_connect_message('username', message)
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
@@ -746,7 +736,10 @@ class TournamentConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_room_info(self, room_id):
-        return GameRoom.objects.get(id=room_id)
+        try:
+            return GameRoom.objects.get(id=room_id)
+        except GameRoom.DoesNotExist:
+            return None
 
     @database_sync_to_async
     def get_user_profile_by_room_id(self, room):
@@ -782,23 +775,24 @@ class TournamentConsumer(AsyncWebsocketConsumer):
 
     async def generate_user_info_in_game_room(self, room_id):
         room = await self.get_room_info(room_id)
-        users_in_game_room = await self.get_user_profile_by_room_id(room)
+        if room is not None:
+            users_in_game_room = await self.get_user_profile_by_room_id(room)
 
-        host_name = room.host
-        participaints = await self.get_user_participaints(room)
-        host = await self.get_user_profile(host_name)
-        host_picture = await self.get_picture(host)
+            host_name = room.host
+            participaints = await self.get_user_participaints(room)
+            host = await self.get_user_profile(host_name)
+            host_picture = await self.get_picture(host)
 
-        if participaints >= 2:
-            guest_profiles = await self.generate_guest_profile(users_in_game_room, host)
-        else:
-            guest_profiles = []
+            if participaints >= 2:
+                guest_profiles = await self.generate_guest_profile(users_in_game_room, host)
+            else:
+                guest_profiles = []
 
-        return {
-            'host_name': host.nick_name,
-            'host_picture': host_picture,
-            'guests': guest_profiles
-        }
+            return {
+                'host_name': host.nick_name,
+                'host_picture': host_picture,
+                'guests': guest_profiles
+            }
 
     @database_sync_to_async
     def create_game_room(self, host_name):
