@@ -26,8 +26,6 @@ def get_user_info_from_token(jwt):
 class NoticeConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         message = event['message']
-
-        # Send message to WebSocket
         await self.send(text_data=message)
 
     async def connect(self):
@@ -335,9 +333,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_user(self, profile):
         return User.objects.get(profile=profile)
 
-
-
-
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
@@ -417,13 +412,6 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await set_tournament_lose(self.scope['user'], self.room_name)
                 await self.delete_done_room(self.room_name)
                 await self.send_message('end_game')
-            # if data['type'] == 'back_room':
-            #     room_id = data['room_id']
-            #     game_room = get_room_by_id(room_id)
-            #     if is_host(self.scope['user']) is not True:
-            #         message = generate_user_information_in_room(game_room)
-            #         await self.send_connect_message('username', message)
-
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({'message': 'fail'}))
 
@@ -588,10 +576,6 @@ class GameConsumer(AsyncWebsocketConsumer):
         posX = event['posX']
         posY = event['posY']
         await self.send(text_data=json.dumps({'type': message, 'posY': posY, 'posX': posX}))
-
-
-
-
 
 class TournamentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -938,63 +922,3 @@ def set_tournament_win(winner, room_id):
         game_type='1',
         match_date=datetime.now()
     )
-
-
-# refactor 부분입니다.
-
-@database_sync_to_async
-def get_room_by_id(room_id):
-    return GameRoom.objects.get(id=room_id)
-
-
-@database_sync_to_async
-def is_host(user, room_id):
-    user_name = user.username
-    room = get_room_by_id(room_id)
-    return user_name == room.host
-
-
-@database_sync_to_async
-def get_users_in_game_room(room):
-    return UserProfile.objects.filter(game_room=room)
-
-
-@database_sync_to_async
-def get_user_profile_by_username(username):
-    return User.objects.filter(username=username).profile
-
-
-def generate_user_profiles(guests):
-    guest_profiles = []
-    for guest in guests:
-        guest_profile = {
-            'guest_name': guest.user.username,
-            'guest_picture': guest.get_picture()
-        }
-        guest_profiles.append(guest_profile)
-    return guest_profiles
-
-
-@database_sync_to_async
-def generate_user_information_in_room(game_room):
-    users_in_game_room = get_users_in_game_room(game_room)
-
-    host_name = game_room.host
-    host = get_user_profile_by_username(host_name)
-    guests = users_in_game_room.discard(host)
-    if guests.count() >= 2:
-        guest_profiles = generate_user_profiles(guests)
-    else:
-        guest_profiles = []
-
-    return {
-        'host_name': host_name,
-        'host_picture': host.profile.picture,
-        'guests': guest_profiles
-    }
-
-
-def exit_room(user_profile):
-    user_profile.game_room = None
-    user_profile.save()
-
