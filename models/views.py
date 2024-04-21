@@ -169,8 +169,10 @@ def enter_tournament_room(request, room_id):
             return JsonResponse({'error': e.detail, 'code': 4003}, status=400)
         elif error_message == 'Duplicated nickname':
             return JsonResponse({'error': e.detail, 'code': 4004}, status=400)
-        else:
+        elif error_message == 'Invalid nickname':
             return JsonResponse({'error': e.detail, 'code': 4005}, status=400)
+        else:
+            return JsonResponse({'error': e.detail, 'code': 4006}, status=400)
     return JsonResponse(data, safe=False, status=200)
 
 @api_view(['POST'])
